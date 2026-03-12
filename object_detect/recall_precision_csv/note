@@ -1,0 +1,2 @@
+precision = Positive / (Positive + Negative) => positive predictive value
+recall = Positive / (Positive + Not-Positive) => how many of the positive examples are actually positive?
