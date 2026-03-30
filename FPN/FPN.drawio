@@ -1,0 +1,28 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram name="Page-1" id="5AmRAntjajieB17PjCXj">
+    <mxGraphModel dx="2066" dy="1291" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="4681" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="W_dLOGl3oGNgvHrMMS2E-2" value="" style="shape=parallelogram;html=1;strokeWidth=3;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;fillColor=#FFFFFF;fontColor=#333333;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1250" width="260" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="W_dLOGl3oGNgvHrMMS2E-3" value="" style="shape=parallelogram;html=1;strokeWidth=3;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;fillColor=#FFFFFF;fontColor=#333333;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="260" y="1240" width="260" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="W_dLOGl3oGNgvHrMMS2E-4" value="" style="shape=parallelogram;html=1;strokeWidth=3;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;fillColor=#000099;strokeColor=#000000;fillStyle=solid;gradientColor=none;gradientDirection=north;" vertex="1" parent="1">
+          <mxGeometry x="250" y="1230" width="260" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="W_dLOGl3oGNgvHrMMS2E-5" value="" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;strokeColor=#000000;fillColor=#00CC66;" vertex="1" parent="1">
+          <mxGeometry x="250" y="1160" width="220" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="W_dLOGl3oGNgvHrMMS2E-8" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;fillColor=none;strokeColor=#000000;strokeWidth=3;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="370" y="1440" as="sourcePoint" />
+            <mxPoint x="370" y="1390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

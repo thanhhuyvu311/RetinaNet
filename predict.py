@@ -9,11 +9,11 @@ from resnet_50 import resnet_50_backbone
 import ast
 
 # --- CAU HINH ---
-TARGET_SIZE = 224
+TARGET_SIZE = 512
 BATCH_SIZE = 1
 # Nho kiem tra dung duong dan file weight moi nhat cua bro
-WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/object_detect/weight_store/100epochs-sgd.weights.h5'
-TEST_CSV = '/home/huy/Documents/de_tai_tot_nghiep/object_detect/csv_file/test_data.csv'
+WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/drone_rgb_adam_with_self.aspect_ratios = [0.4, 0.5, 1.0]_256_|_.weights.h5'
+TEST_CSV = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/test_data.csv'
 
 
 def decode_box_predictions(anchor_boxes, box_predictions):
@@ -58,7 +58,7 @@ def get_inference_model(num_classes):
     return model
 
 
-def run_inference(model, image_path, all_anchors, score_threshold=0.6):
+def run_inference(model, image_path, all_anchors, score_threshold=0.4):
     img_raw = tf.io.read_file(image_path)
     img = tf.image.decode_jpeg(img_raw, channels=3)
     img = tf.cast(img, tf.float32)
@@ -122,7 +122,7 @@ if __name__ == '__main__':
         gt_boxes = ast.literal_eval(row['bbox'])
 
         # [SUA]: Ha score_threshold xuong 0.1 de de dang quan sat cac box co do tu tin thap
-        img, boxes, scores, classes, num_det, ratio = run_inference(model, img_path, all_anchors, score_threshold=0.6)
+        img, boxes, scores, classes, num_det, ratio = run_inference(model, img_path, all_anchors, score_threshold=0.4)
 
         print(f"--- Anh thu {i+1} ---")
         print(f"So luong vat the tim thay: {num_det}")

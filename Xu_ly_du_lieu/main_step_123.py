@@ -3,7 +3,7 @@ import os, glob
 import pandas as pd
 
 if __name__ == '__main__':
-    data_dir = '/home/huy/Documents/de_tai_tot_nghiep/object_detect'
+    data_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
     anno_dir = os.path.join(data_dir, 'anno')  # lay dia chi thuc muc anno
     img_dir = os.path.join(data_dir, 'imgs')
 
@@ -51,6 +51,7 @@ if __name__ == '__main__':
                 # BỘ LỌC CHẶN BÓNG MA: Chi lay nhung box co width va height > 0
                 if w > 0 and h > 0:
                     bboxes_of_img.append([x, y, w, h])
+                    #bboxes_of_img.append([xmin, ymin, xmax, ymax])
                     class_ids_of_img.append(class_id)
 
         # Sau khi quet xong tat ca object, luu thong tin cua buc anh vao list.
@@ -67,5 +68,5 @@ if __name__ == '__main__':
 
     # luu file csv
     os.chdir(data_dir + '/csv_file/')
-    grouped_df.to_csv('data_information_grouped.csv', index=False)
+    grouped_df.to_csv('data_information_grouped_thermal_drone.csv', index=False)
     print("Xong! Đã dọn dẹp bóng ma và hỗ trợ ảnh Background.")

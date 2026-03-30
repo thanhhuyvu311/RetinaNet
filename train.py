@@ -11,7 +11,7 @@ import ast
 if __name__ == '__main__':
     base_dir = '/home/huy/Documents/de_tai_tot_nghiep/object_detect'
     #---KHOI TAO ANCHOR BOX ---#
-    target_size = 224
+    target_size = 256
     anchor_gene = Anchor_box()
     #tao anchor
     all_anchor = anchor_gene.get_anchors(img_h=target_size,img_w=target_size)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     # 2. Cài đặt Optimizer
     learning_rates = [2.5e-06, 0.000625, 0.00125, 0.0025, 0.00025, 2.5e-05]
-    learning_rate_boundaries = [125, 250, 500, 240000, 360000]
+    learning_rate_boundaries = [125, 250, 500, 240000, 360000] #cac step de su dung learning rate tuong ung
     learning_rate_fn = tf.optimizers.schedules.PiecewiseConstantDecay(
         boundaries=learning_rate_boundaries, values=learning_rates
     )

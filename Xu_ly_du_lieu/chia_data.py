@@ -2,10 +2,10 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 import os
 if __name__ == "__main__":
-    data_dir = '/home/huy/Documents/de_tai_tot_nghiep/object_detect'
+    data_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
     csv_file = os.path.join(data_dir,'csv_file')
 
-    read_csv = pd.read_csv(csv_file+'/data_information_grouped.csv')
+    read_csv = pd.read_csv(csv_file+'/data_information_grouped_thermal_drone.csv')
     #lay tat ca ten trong path_img vao 1 mang
     unique_file = read_csv['path_img'].unique()
 

@@ -2,7 +2,7 @@ O = [(i + 2p - k) / s ]+1
 p: padding
 k: kernel size
 s: stride
-
+i: input
 size 224x224
 
 conv1:

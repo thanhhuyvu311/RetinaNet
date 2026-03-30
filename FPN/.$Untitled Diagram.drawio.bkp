@@ -1,0 +1,51 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram name="Page-1" id="5AmRAntjajieB17PjCXj">
+    <mxGraphModel dx="1722" dy="1076" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3300" pageHeight="4681" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=light-dark(#000000,#000000);strokeWidth=3;" edge="1" parent="1" source="8HxtXccHoYU5dxAw_XGX-1" target="8HxtXccHoYU5dxAw_XGX-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-1" value="&lt;p&gt;&lt;font style=&quot;color: light-dark(rgb(0, 0, 0), rgb(0, 0, 0)); font-size: 18px;&quot; face=&quot;Times New Roman&quot;&gt;Lấy 3 output từ back_bone&lt;/font&gt;&lt;/p&gt;&lt;p&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;C3,C4,C5&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeWidth=3;strokeColor=light-dark(#000000,#000000);" vertex="1" parent="1">
+          <mxGeometry x="280" y="1120" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-3" value="&lt;p&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Chuyển 3 output về cùng một kích thước kênh (256)&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeWidth=3;strokeColor=light-dark(#000000,#000000);" vertex="1" parent="1">
+          <mxGeometry x="610" y="1120" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=light-dark(#000000,#000000);strokeWidth=3;" edge="1" target="8HxtXccHoYU5dxAw_XGX-6" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="1220" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-6" value="&lt;p&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Thực hiện phép cộng kênh tại C3 và C4&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeWidth=3;strokeColor=light-dark(#000000,#000000);" vertex="1" parent="1">
+          <mxGeometry x="940" y="1120" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=light-dark(#000000,#000000);strokeWidth=3;" edge="1" parent="1" target="8HxtXccHoYU5dxAw_XGX-9">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1140" y="1220" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-9" value="&lt;p&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Thực hiện kỹ thuật làm mịn ảnh tại P3,P4 và P5&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeWidth=3;strokeColor=light-dark(#000000,#000000);" vertex="1" parent="1">
+          <mxGeometry x="1270" y="1120" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=light-dark(#000000,#000000);strokeWidth=3;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" target="8HxtXccHoYU5dxAw_XGX-11" source="8HxtXccHoYU5dxAw_XGX-9">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1150" y="1540" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-11" value="&lt;p&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Tạo tần P6 và P7&amp;nbsp;&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;&lt;p&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;P6 = P5,256/2&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;&lt;p&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;P7 = P6,256/2&lt;/span&gt;&lt;/font&gt;&lt;/p&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeWidth=3;strokeColor=light-dark(#000000,#000000);" vertex="1" parent="1">
+          <mxGeometry x="1270" y="1440" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=light-dark(#000000,#000000);strokeWidth=3;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" target="8HxtXccHoYU5dxAw_XGX-13" source="8HxtXccHoYU5dxAw_XGX-11">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="1540" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="8HxtXccHoYU5dxAw_XGX-13" value="&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;Trả về&amp;nbsp;&lt;/span&gt;&lt;/font&gt;&lt;div&gt;&lt;font face=&quot;Times New Roman&quot; color=&quot;#000000&quot;&gt;&lt;span style=&quot;font-size: 18px;&quot;&gt;P3,P4,P5,P6 và P7&lt;/span&gt;&lt;/font&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeWidth=3;strokeColor=light-dark(#000000,#000000);" vertex="1" parent="1">
+          <mxGeometry x="940" y="1440" width="200" height="200" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

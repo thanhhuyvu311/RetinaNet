@@ -1,12 +1,11 @@
 import tensorflow as tf
 from Anchor_box import compute_iou
 
-
 class LabelEncoder:
     def __init__(self):
 
-        self._match_iou = 0.4
-        self._ignore_iou = 0.2
+        self._match_iou = 0.3
+        self._ignore_iou = 0.1
         self._box_variance = tf.convert_to_tensor(
             [0.1, 0.1, 0.2, 0.2], dtype=tf.float32
         )
@@ -14,7 +13,6 @@ class LabelEncoder:
     def _compute_box_target(self, anchor_boxes, matched_gt_boxes):
         box_target_xy = (matched_gt_boxes[:, :2] - anchor_boxes[:, :2]) / anchor_boxes[:, 2:]
 
-        # 1. BUA HO MENH 1: Chống lỗi NaN khi tính Log
         safe_gt_wh = tf.math.maximum(matched_gt_boxes[:, 2:], 1e-7)
         box_target_wh = tf.math.log(safe_gt_wh / anchor_boxes[:, 2:])
 

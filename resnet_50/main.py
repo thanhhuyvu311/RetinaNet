@@ -7,6 +7,7 @@ def Conv_block(x, filter, stride):
     filter: so luong filter
     stride: buoc nhay
     Day la block lam thay doi kich thuoc input (chi giam hoac khong giam)
+    input va output se khong khop nhau, sau khi qua ham nay, input va output se dc can bang so luong kenh de co the cong voi nhau
     """
     x_skip = x
     f1, f2 = filter
@@ -44,6 +45,7 @@ def Conv_block(x, filter, stride):
 def Res_id_block(x, filter):
     """
     resnet block khong thay doi kich thuoc
+    khoi nay chi hoat dong khi input va output co cung kich thuoc [w,h,c]
     """
     x_skip = x #(so kenh x skip = f2 vi la return cua ham conv_block)
     f1, f2 = filter
@@ -72,12 +74,13 @@ def Res_id_block(x, filter):
 
 
 def resnet_50_backbone():
-    # input size 224x224x3
+    # input size
     input_dim = tf.keras.layers.Input(shape=(None, None, 3))
 
     # su dung padding de giu lai bien anh truoc khi vao conv2d 7x7
-    x = tf.keras.layers.ZeroPadding2D(padding=(3, 3))(input_dim)
+    x = tf.keras.layers.ZeroPadding2D(padding=(3, 3),name='padding_zero')(input_dim)
 
+    #bat dau tu khoi 1 la tinh 1 lop (1 layer)
     # khoi 1
     x = tf.keras.layers.Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2), padding='valid', use_bias=False,
                                name='Conv7x7')(x)
@@ -89,30 +92,30 @@ def resnet_50_backbone():
     x = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name='overlapping')(x)
 
     # khoi 2
-    x = Conv_block(x, (64, 256), 1)
-    x = Res_id_block(x, (64, 256))
-    x = Res_id_block(x, (64, 256))
+    x = Conv_block(x, (64, 256), 1) # 3 layers
+    x = Res_id_block(x, (64, 256)) # 3 layers
+    x = Res_id_block(x, (64, 256)) # 3 layers
     block_2_out = x
     # khoi 3 -> P3 (Stride 8)
-    x = Conv_block(x, (128, 512), 2)
-    x = Res_id_block(x, (128, 512))
-    x = Res_id_block(x, (128, 512))
-    x = Res_id_block(x, (128, 512))
+    x = Conv_block(x, (128, 512), 2) # 3 layers
+    x = Res_id_block(x, (128, 512)) # 3 layers
+    x = Res_id_block(x, (128, 512)) # 3 layers
+    x = Res_id_block(x, (128, 512)) # 3 layers
     block_3_out = x
 
     # khoi 4 -> P4 (Stride 16)
-    x = Conv_block(x, (256, 1024), 2)
-    x = Res_id_block(x, (256, 1024))
-    x = Res_id_block(x, (256, 1024))
-    x = Res_id_block(x, (256, 1024))
-    x = Res_id_block(x, (256, 1024))
-    x = Res_id_block(x, (256, 1024))
+    x = Conv_block(x, (256, 1024), 2) # 3 layers
+    x = Res_id_block(x, (256, 1024)) # 3 layers
+    x = Res_id_block(x, (256, 1024)) # 3 layers
+    x = Res_id_block(x, (256, 1024)) # 3 layers
+    x = Res_id_block(x, (256, 1024)) # 3 layers
+    x = Res_id_block(x, (256, 1024)) # 3 layers
     block_4_out = x
 
     # khoi 5 -> P5 (Stride 32)
-    x = Conv_block(x, (512, 2048), 2)
-    x = Res_id_block(x, (512, 2048))
-    x = Res_id_block(x, (512, 2048))
+    x = Conv_block(x, (512, 2048), 2) # 3 layers
+    x = Res_id_block(x, (512, 2048)) # 3 layers
+    x = Res_id_block(x, (512, 2048)) # 3 layers
     block_5_out = x
 
     model = tf.keras.models.Model(inputs=input_dim, outputs=[block_3_out, block_4_out, block_5_out], name='resnet_50')
@@ -131,5 +134,3 @@ def head_of_model(output_filters, bias_init):
     head.add(tf.keras.layers.Conv2D(output_filters, 3, 1, padding='same', kernel_initializer=kernel_init,
                                     bias_initializer=bias_init))
     return head
-
-

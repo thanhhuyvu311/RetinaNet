@@ -1,7 +1,7 @@
 import os,glob,shutil
 
 if __name__ == "__main__":
-    data_dir = '/home/huy/Documents/de_tai_tot_nghiep/object_detect'
+    data_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
     #--- lay dia chi folder ---
     train_data = os.path.join(data_dir,'train') #lay dia chi cua folder train
     valid_data = os.path.join(data_dir,'valid') #lay dia chi cua folder valid
@@ -14,8 +14,8 @@ if __name__ == "__main__":
     can di chuyen cac file trong folder train,test va valid sang folder anno va imgs
     thay doi folder bang cach thay doi ten dia chi folder o 2 dong code phia duoi
     """
-    xml_file = glob.glob(os.path.join(train_data,'*.xml'))
-    jpg_file = glob.glob(os.path.join(train_data,'*.jpg'))
+    xml_file = glob.glob(os.path.join(test_data,'*.xml'))
+    jpg_file = glob.glob(os.path.join(test_data,'*.jpg'))
 
     #--- di chuyen file sang folder khac
     #lay file name cua xml va jpg bang lenh os.path.basename

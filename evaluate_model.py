@@ -50,7 +50,7 @@ def evaluate_model():
 
         # Chay du doan voi threshold thap de ve PR Curve
         _, pred_boxes, pred_scores, _, num_det, ratio = run_inference(
-            model, img_path, all_anchors, score_threshold=0.6
+            model, img_path, all_anchors, score_threshold=0.5
         )
 
         # Xu ly Ground Truth (Chuyen tu [x_c, y_c, w, h] to -> [xmin, ymin, xmax, ymax] ty le 224)
@@ -139,9 +139,9 @@ def evaluate_model():
         'precision': precisions
     })
 
-    base_dir = '/home/huy/Documents/de_tai_tot_nghiep/object_detect'
+    base_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
     recall_precision_dir = os.path.join(base_dir, 'recall_precision_csv')
-    pr_df_path = os.path.join(recall_precision_dir, '100epochs-sgd_recall_precision_csv')
+    pr_df_path = os.path.join(recall_precision_dir, 'drone_Thermal_check')
 
     # Tạo folder nếu chưa tồn tại để tránh lỗi
     os.makedirs(pr_df_path, exist_ok=True)

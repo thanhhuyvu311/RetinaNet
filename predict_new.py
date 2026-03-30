@@ -9,12 +9,12 @@ from RetinaNet import RetinaNet
 from resnet_50 import resnet_50_backbone
 
 # --- CAU HINH ---
-TARGET_SIZE = 224
+TARGET_SIZE = 256
 # Nho kiem tra dung duong dan file weight moi nhat cua bro
-WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/object_detect/weight_store/new_model.weights.h5'
+WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/drone_rgb_adam_with_self.aspect_ratios = [0.4, 0.5, 1.0]_256_.weights.h5'
 
 # THU MUC CHUA ANH CAN TEST (Bro sua lai thanh duong dan thuc te)
-TEST_IMG_FOLDER = '/home/huy/Documents/de_tai_tot_nghiep/object_detect/test_img/train'
+TEST_IMG_FOLDER = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/test_img'
 
 
 def decode_box_predictions(anchor_boxes, box_predictions):

@@ -1,9 +1,9 @@
 import os
 
-# [FIX RAM]: Bơm thẳng 500MB ngân sách bộ nhớ đệm cho TensorFlow để hết cảnh báo
 os.environ['TF_DATA_AUTOTUNE_RAM_BUDGET'] = '500000000'
 
 import tensorflow as tf
+from tensorflow.keras import mixed_precision
 from Anchor_box import Anchor_box
 from Label_encode import LabelEncoder
 from Xu_ly_du_lieu import preprocessing_data_before_training
@@ -29,9 +29,22 @@ def pack_targets(img, bdb, cls):
     # Trả về ĐÚNG 2 món: Ảnh (Input) và Nhãn gộp (Target) cho Keras
     return img, y_true
 if __name__ == '__main__':
-    base_dir = '/home/huy/Documents/de_tai_tot_nghiep/object_detect'
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            print(e)
+
+    policy = mixed_precision.Policy('mixed_float16')
+    mixed_precision.set_global_policy(policy)
+
+    base_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
+
+    target_size = 640
+    batch_size = 4
     # ---KHOI TAO ANCHOR BOX ---#
-    target_size = 224
     anchor_gene = Anchor_box()
     # tao anchor
     all_anchor = anchor_gene.get_anchors(img_h=target_size, img_w=target_size)
@@ -41,12 +54,12 @@ if __name__ == '__main__':
 
     # --- XU LY DATASET VA GAN NHAN (GIỮ NGUYÊN NHƯ FILE CŨ) ---#
 
-    train_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/object_detect/csv_file/train_data.csv'
-    val_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/object_detect/csv_file/valid_data.csv'
+    train_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/train_data.csv'
+    val_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/valid_data.csv'
     raw_train_data = preprocessing_data_before_training.change_string2number(train_csv_path)
     raw_val_data = preprocessing_data_before_training.change_string2number(val_csv_path)
     train_dataset = preprocessing_data_before_training.create_dataset_from_dataframe(raw_train_data).shuffle(
-        buffer_size=1000)
+        buffer_size=500)
     val_dataset = preprocessing_data_before_training.create_dataset_from_dataframe(raw_val_data)
 
     # doc anh,resize,scale bdb
@@ -63,8 +76,7 @@ if __name__ == '__main__':
         lambda img, bdb, cls: preprocessing_data_before_training.resize_and_pad_img(img, bdb, cls, target_size),
         num_parallel_calls=tf.data.AUTOTUNE
     )
-    # gom batch size
-    batch_size = 32
+
 
     train_dataset = train_dataset.padded_batch(
         batch_size=batch_size,
@@ -107,9 +119,10 @@ if __name__ == '__main__':
 
     resnet50_backbone = resnet_50_backbone()
     model = RetinaNet(num_classes=num_classes, backbone=resnet50_backbone)
-    # ====== ĐOẠN CODE MỚI ĐỂ LOAD WEIGHTS CŨ ======
-    weight_path = os.path.join(base_dir, 'weight_store', '100_adam_auto.weights.h5')
-
+    """
+     # ====== ĐOẠN CODE MỚI ĐỂ LOAD WEIGHTS CŨ ======
+    #weight_path = os.path.join(base_dir, 'weight_store', '300epochs_256_adam_auto.weights.h5')
+    weight_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/512_.weights.h5'
     # Kiểm tra xem file weights có tồn tại không
     if os.path.exists(weight_path):
         print(f"🔥🔥 Phát hiện 'não' cũ tại: {weight_path}")
@@ -124,9 +137,12 @@ if __name__ == '__main__':
     else:
         print("🌟 Không tìm thấy file weights cũ. Mô hình sẽ học lại từ đầu như một tờ giấy trắng!")
     # ==============================================
+    """
+
+
 
     # [FIX TẮT THỞ LR]: Dùng thuật toán Adam với learning rate cố định
-    optimizer = tf.keras.optimizers.Adam(learning_rate=4.999999873689376e-05)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=5e-5)
     loss_fn = RetinaNetLoss(num_classes=num_classes)
 
     # 3. Compile model
@@ -147,22 +163,22 @@ if __name__ == '__main__':
         ),
 
         tf.keras.callbacks.ModelCheckpoint(
-            filepath=weight_folder + "/fine-tunning_100_adam_auto.weights.h5",
-            monitor="loss",
+            filepath=weight_folder + "/retinanet_gamma_3.0.weights.h5",
+            monitor="val_loss",
             save_best_only=True,
             save_weights_only=True,
             verbose=1,
         ),
 
         tf.keras.callbacks.EarlyStopping(
-            monitor="loss",
-            patience=15,
+            monitor="val_loss",
+            patience=10,
             verbose=1,
             restore_best_weights=True
         )
     ]
 
-    EPOCHS = 100
+    EPOCHS = 200
 
     hist = model.fit(
         train_dataset,
@@ -175,5 +191,5 @@ if __name__ == '__main__':
     model_store_folder = os.path.join(base_dir, 'model_store')
     hist_store_folder = os.path.join(base_dir, 'hist_store')
     os.makedirs(hist_store_folder, exist_ok=True)
-    hist_df.to_csv(hist_store_folder + '/fine-tunning-100_adam_auto_csv.csv')
+    hist_df.to_csv(hist_store_folder + '/retinanet_gamma_3.0.csv')
 
