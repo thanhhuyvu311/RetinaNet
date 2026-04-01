@@ -22,12 +22,18 @@ class Anchor_box:
 
     def __init__(self):
         #self.aspect_ratios = [0.5,1.0,2.0]
-        self.aspect_ratios = [0.75,1.0,1.3]
+        self.aspect_ratios = [0.4, 0.7, 1.1]
         self.scales = [2 ** x for x in [0,1/3,2/3]]
         self._num_anchors = len(self.aspect_ratios) * len(self.scales)
         self._strides = [2 ** i for i in range(3,8)]
         #self._areas = [x ** 2 for x in [32.0,64.0,128.0,256.0,512.0]]
-        self._areas = [x ** 2 for x in [2.0, 4.0, 8.0, 10.0, 12.0]]
+
+        # [TILING - CẦN CẬP NHẬT] Giá trị này được tinh chỉnh cho ảnh resize toàn bộ 1280→512.
+        # Sau khi áp dụng tiling (crop 640→512), object lớn hơn ~2× trong input model.
+        # → Cần chạy lại Xu_ly_du_lieu/analize_histogram_data.py trên train_tiled_data.csv
+        #   để đo phân phối kích thước object mới, rồi cập nhật dòng này.
+        # Ước tính ban đầu (tăng ~2×): [x ** 2 for x in [4.0, 8.0, 16.0, 20.0, 24.0]]
+        self._areas = [x ** 2 for x in [12.0, 24.0, 48.0, 96.0, 192.0]]
         #self._areas = [x ** 2 for x in [1.8, 2.8, 4.8, 6.0, 8.0]]
         #self._areas = [x ** 2 for x in [8.0, 16.0, 24.0, 36.0, 64.0]]
         self._anchor_dims = self._compute_dims()

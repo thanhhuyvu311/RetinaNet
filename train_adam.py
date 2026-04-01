@@ -42,8 +42,8 @@ if __name__ == '__main__':
 
     base_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
 
-    target_size = 640
-    batch_size = 4
+    target_size = 512   # [TILING - ĐỔI] 640 → 512: tile 640×512 resize về 512×512
+    batch_size = 8      # [TILING - ĐỔI] 4 → 8: tile nhỏ hơn → tăng batch_size được
     # ---KHOI TAO ANCHOR BOX ---#
     anchor_gene = Anchor_box()
     # tao anchor
@@ -54,8 +54,9 @@ if __name__ == '__main__':
 
     # --- XU LY DATASET VA GAN NHAN (GIỮ NGUYÊN NHƯ FILE CŨ) ---#
 
+    # [TILING - ĐỔI] trỏ sang CSV tile mới (tạo bởi main_step_123.py + chia_data.py)
     train_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/train_data.csv'
-    val_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/valid_data.csv'
+    val_csv_path   = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/valid_data.csv'
     raw_train_data = preprocessing_data_before_training.change_string2number(train_csv_path)
     raw_val_data = preprocessing_data_before_training.change_string2number(val_csv_path)
     train_dataset = preprocessing_data_before_training.create_dataset_from_dataframe(raw_train_data).shuffle(
@@ -163,7 +164,7 @@ if __name__ == '__main__':
         ),
 
         tf.keras.callbacks.ModelCheckpoint(
-            filepath=weight_folder + "/retinanet_gamma_3.0.weights.h5",
+            filepath=weight_folder + "/retinanet_tiled_512.weights.h5",  # [TILING - ĐỔI] không ghi đè model cũ
             monitor="val_loss",
             save_best_only=True,
             save_weights_only=True,
@@ -191,5 +192,5 @@ if __name__ == '__main__':
     model_store_folder = os.path.join(base_dir, 'model_store')
     hist_store_folder = os.path.join(base_dir, 'hist_store')
     os.makedirs(hist_store_folder, exist_ok=True)
-    hist_df.to_csv(hist_store_folder + '/retinanet_gamma_3.0.csv')
+    hist_df.to_csv(hist_store_folder + '/retinanet_tiled_512.csv')  # [TILING - ĐỔI] không ghi đè history cũ
 

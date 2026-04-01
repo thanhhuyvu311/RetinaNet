@@ -5,14 +5,14 @@ if __name__ == "__main__":
     data_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
     csv_file = os.path.join(data_dir,'csv_file')
 
-    read_csv = pd.read_csv(csv_file+'/data_information_grouped_thermal_drone.csv')
+    read_csv = pd.read_csv(csv_file+'/data_information_tiled.csv')
     #lay tat ca ten trong path_img vao 1 mang
     unique_file = read_csv['path_img'].unique()
 
     #chia data train, valid, test
 
-    train_data,temp_data = train_test_split(unique_file,test_size=0.3,random_state=33)  #chia tap train thanh 70% va tap temp 30% (tu tap data unique)
-    valid_data,test_data = train_test_split(temp_data,test_size=1/3,random_state=33) #chia tap valid 20% tap test 10% (tu tap temp)
+    train_data,temp_data = train_test_split(unique_file,test_size=0.3,random_state=36)  #chia tap train thanh 70% va tap temp 30% (tu tap data unique)
+    valid_data,test_data = train_test_split(temp_data,test_size=1/3,random_state=36) #chia tap valid 20% tap test 10% (tu tap temp)
     train_df = read_csv[read_csv['path_img'].isin(train_data)]
     valid_df = read_csv[read_csv['path_img'].isin(valid_data)]
     test_df = read_csv[read_csv['path_img'].isin(test_data)]

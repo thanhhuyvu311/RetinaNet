@@ -4,7 +4,8 @@ import ast
 import os
 import matplotlib.pyplot as plt  # Thêm thư viện để vẽ đồ thị
 
-from predict import get_inference_model, run_inference, TARGET_SIZE, WEIGHT_PATH, TEST_CSV
+# [TILING - ĐỔI] import run_tiled_inference thay cho run_inference
+from predict import get_inference_model, run_tiled_inference, TARGET_SIZE, WEIGHT_PATH, TEST_CSV
 from Anchor_box import Anchor_box
 
 
@@ -48,16 +49,18 @@ def evaluate_model():
         img_path = row['path_img']
         gt_boxes_raw = ast.literal_eval(row['bbox'])
 
-        # Chay du doan voi threshold thap de ve PR Curve
-        _, pred_boxes, pred_scores, _, num_det, ratio = run_inference(
-            model, img_path, all_anchors, score_threshold=0.5
+        # [TILING - ĐỔI] dùng run_tiled_inference, threshold thấp để vẽ PR Curve đầy đủ
+        # boxes trả về đã ở hệ tọa độ ảnh gốc, ratio = 1.0
+        _, pred_boxes, pred_scores, _, num_det, ratio = run_tiled_inference(
+            model, img_path, all_anchors, score_threshold=0.05
         )
 
-        # Xu ly Ground Truth (Chuyen tu [x_c, y_c, w, h] to -> [xmin, ymin, xmax, ymax] ty le 224)
+        # Xu ly Ground Truth (Chuyen tu [x_c, y_c, w, h] to -> [xmin, ymin, xmax, ymax])
+        # [TILING - ĐỔI] ratio = 1.0 nên KHÔNG nhân ratio nữa (tọa độ đã ở hệ ảnh gốc)
         gt_boxes = []
         for box in gt_boxes_raw:
             x_c, y_c, w, h = box
-            x_c, y_c, w, h = x_c * ratio, y_c * ratio, w * ratio, h * ratio
+            # x_c, y_c, w, h = x_c * ratio, y_c * ratio, w * ratio, h * ratio  ← ĐÃ XÓA
             xmin = x_c - w / 2.0
             ymin = y_c - h / 2.0
             xmax = x_c + w / 2.0
