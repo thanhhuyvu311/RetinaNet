@@ -7,11 +7,11 @@ from tiling_utils import generate_tile_coords, get_bboxes_for_tile, crop_and_sav
 
 if __name__ == '__main__':
     data_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
-    anno_dir = os.path.join(data_dir, 'anno')  # lay dia chi thuc muc anno
+    anno_dir = os.path.join(data_dir, 'anno_test')  # lay dia chi thuc muc anno
     img_dir = os.path.join(data_dir, 'imgs')
 
     # [TILING - THÊM MỚI] tạo thư mục lưu ảnh tile (nếu chưa tồn tại)
-    tile_dir = os.path.join(data_dir, 'tiles')
+    tile_dir = os.path.join(data_dir, 'tiles_test')
     os.makedirs(tile_dir, exist_ok=True)
 
     # [TILING - THÊM MỚI] thông số tiling — chỉnh ở đây nếu muốn thay đổi

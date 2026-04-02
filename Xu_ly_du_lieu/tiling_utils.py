@@ -31,6 +31,7 @@ def generate_tile_coords(img_w, img_h, tile_w, tile_h, overlap=0.2):
     step_x = max(1, int(tile_w * (1 - overlap)))
     step_y = max(1, int(tile_h * (1 - overlap)))
 
+    #---Quet vung bat dau cho cac tile---
     # --- Trục X ---
     xs = list(range(0, img_w - tile_w + 1, step_x))
     # Tile cuối chạm sát cạnh phải nếu chưa cover hết
@@ -49,7 +50,7 @@ def generate_tile_coords(img_w, img_h, tile_w, tile_h, overlap=0.2):
 
 
 def get_bboxes_for_tile(bboxes, class_ids, tile_x, tile_y, tile_w, tile_h,
-                        min_visibility=0.3):
+                        min_visibility):
     """
     Lọc và chuyển đổi bbox từ hệ tọa độ ảnh gốc sang hệ tọa độ tile.
 
