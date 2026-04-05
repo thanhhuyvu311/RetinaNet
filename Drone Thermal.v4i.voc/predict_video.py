@@ -13,10 +13,10 @@ from Xu_ly_du_lieu.tiling_utils import generate_tile_coords, apply_global_nms
 
 # --- CAU HINH ---
 TARGET_SIZE = 512
-WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512.weights.h5'
+WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512-new-.weights.h5'
 
-INPUT_VIDEO  = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/in_test_3.mp4'
-OUTPUT_VIDEO = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/out_test3.mp4'
+INPUT_VIDEO  = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/in_test_2.mp4'
+OUTPUT_VIDEO = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/out_test2-new-weights-.mp4'
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -61,7 +61,7 @@ def get_inference_model(num_classes):
 
 def run_tiled_inference_on_frame(model, frame_bgr, all_anchors,
                                   tile_w=640, tile_h=512, overlap=0.2,
-                                  score_threshold=0.5):
+                                  score_threshold=0.7):
     """
     Nhan vao 1 frame BGR (numpy), chay tiled inference,
     tra ve boxes [ymin,xmin,ymax,xmax] trong he toa do goc va scores.
@@ -101,7 +101,7 @@ def run_tiled_inference_on_frame(model, frame_bgr, all_anchors,
             class_probs,
             max_output_size_per_class=50,
             max_total_size=50,
-            iou_threshold=0.4,
+            iou_threshold=0.3, # se loai bo nhung box trung lap nhieu hon
             score_threshold=score_threshold,
             clip_boxes=False
         )
@@ -121,7 +121,7 @@ def run_tiled_inference_on_frame(model, frame_bgr, all_anchors,
 
     final_boxes, final_scores, num_det = apply_global_nms(
         all_boxes, all_scores,
-        iou_threshold=0.45,
+        iou_threshold=0.3,
         score_threshold=score_threshold
     )
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
         print(f"Frame {frame_idx}/{total}", end='\r')
 
         boxes, scores, num_det = run_tiled_inference_on_frame(
-            model, frame, all_anchors, score_threshold=0.5
+            model, frame, all_anchors, score_threshold=0.7
         )
 
         frame = draw_boxes(frame, boxes, scores, num_det)

@@ -141,7 +141,7 @@ def evaluate_model():
 
     base_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
     recall_precision_dir = os.path.join(base_dir, 'recall_precision_csv')
-    pr_df_path = os.path.join(recall_precision_dir, 'drone_Thermal_512_tiling')
+    pr_df_path = os.path.join(recall_precision_dir, 'drone_Thermal_512_tiling_new-')
 
     # Tạo folder nếu chưa tồn tại để tránh lỗi
     os.makedirs(pr_df_path, exist_ok=True)

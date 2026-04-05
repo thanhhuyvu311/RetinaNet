@@ -11,10 +11,10 @@ from Xu_ly_du_lieu.tiling_utils import generate_tile_coords, apply_global_nms
 
 # --- CAU HINH ---
 TARGET_SIZE = 512
-WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512.weights.h5'
+WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512-new.weights.h5'
 
 # THU MUC CHUA ANH CAN TEST (sua lai thanh duong dan thuc te)
-TEST_IMG_FOLDER = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/test_img'
+TEST_IMG_FOLDER = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/new-raw-img'
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -56,7 +56,7 @@ def get_inference_model(num_classes):
 
 def run_tiled_inference(model, image_path, all_anchors,
                         tile_w=640, tile_h=512, overlap=0.2,
-                        score_threshold=0.4):
+                        score_threshold=0.5):
     """
     Chia anh goc thanh cac tile, chay inference tren tung tile,
     gop ket qua va ap dung Global NMS.
@@ -100,7 +100,7 @@ def run_tiled_inference(model, image_path, all_anchors,
             class_probs,
             max_output_size_per_class=50,
             max_total_size=50,
-            iou_threshold=0.4,
+            iou_threshold=0.3,
             score_threshold=score_threshold,
             clip_boxes=False
         )
@@ -120,7 +120,7 @@ def run_tiled_inference(model, image_path, all_anchors,
 
     final_boxes, final_scores, num_det = apply_global_nms(
         all_boxes, all_scores,
-        iou_threshold=0.45,
+        iou_threshold=0.3,
         score_threshold=score_threshold
     )
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     for img_path in img_paths:
         img, boxes, scores, num_det = run_tiled_inference(
-            model, img_path, all_anchors, score_threshold=0.4
+            model, img_path, all_anchors, score_threshold=0.5
         )
 
         print(f"--- Anh: {os.path.basename(img_path)} ---")

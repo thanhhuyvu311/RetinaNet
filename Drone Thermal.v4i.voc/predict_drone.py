@@ -16,8 +16,8 @@ from tensorflow.keras import mixed_precision
 TARGET_SIZE = 512   # kích thước mỗi tile sau khi resize (không đổi)
 BATCH_SIZE = 1
 # [TILING - ĐỔI] trỏ sang weight của model mới train với tiled data
-WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512.weights.h5'
-TEST_CSV = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/test_data.csv'
+WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512-new-.weights.h5'
+TEST_CSV = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/test_data2.csv'
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -72,7 +72,7 @@ def get_inference_model(num_classes):
     return model
 
 
-def run_inference(model, image_path, all_anchors, score_threshold=0.4):
+def run_inference(model, image_path, all_anchors, score_threshold=0.5):
     img_raw = tf.io.read_file(image_path)
     img = tf.image.decode_jpeg(img_raw, channels=3)
     img = tf.cast(img, tf.float32)
@@ -105,7 +105,7 @@ def run_inference(model, image_path, all_anchors, score_threshold=0.4):
         tf.cast(class_probs, tf.float32),
         max_output_size_per_class=10,
         max_total_size=10,
-        iou_threshold=0.4,
+        iou_threshold=0.5,
         score_threshold=score_threshold,
         clip_boxes=False  # <--- CHÌA KHÓA VÀNG LÀ ĐÂY!!!
     )
@@ -120,7 +120,7 @@ def run_inference(model, image_path, all_anchors, score_threshold=0.4):
 # [TILING - HÀM MỚI] ============================================================
 def run_tiled_inference(model, image_path, all_anchors,
                         tile_w=640, tile_h=512, overlap=0.2,
-                        score_threshold=0.05):
+                        score_threshold=0.25):
     """
     Chạy inference trên ảnh gốc bằng cách chia thành các tile, inference từng tile,
     gộp lại và áp dụng Global NMS để loại bỏ box trùng ở vùng overlap.
@@ -184,7 +184,7 @@ def run_tiled_inference(model, image_path, all_anchors,
             class_probs,
             max_output_size_per_class=50,
             max_total_size=50,
-            iou_threshold=0.4,
+            iou_threshold=0.5,
             score_threshold=score_threshold,
             clip_boxes=False
         )
@@ -208,7 +208,7 @@ def run_tiled_inference(model, image_path, all_anchors,
     # Bước 4: Global NMS — BẮT BUỘC để loại box trùng ở vùng overlap
     final_boxes, final_scores, num_det = apply_global_nms(
         all_boxes, all_scores,
-        iou_threshold=0.45,
+        iou_threshold=0.5,
         score_threshold=score_threshold
     )
 
@@ -244,7 +244,7 @@ if __name__ == '__main__':
         # img giờ là ảnh gốc 1280×1024 (thay vì 512×512 padded)
         # boxes đã ở hệ tọa độ ảnh gốc, ratio = 1.0
         img, boxes, scores, classes, num_det, ratio = run_tiled_inference(
-            model, img_path, all_anchors, score_threshold=0.4
+            model, img_path, all_anchors, score_threshold=0.5
         )
 
         print(f"--- Anh thu {i+1} ---")

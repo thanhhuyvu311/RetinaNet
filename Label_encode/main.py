@@ -4,7 +4,7 @@ from Anchor_box import compute_iou
 class LabelEncoder:
     def __init__(self):
 
-        self._match_iou = 0.4
+        self._match_iou = 0.5
         self._ignore_iou = 0.2
         self._box_variance = tf.convert_to_tensor(
             [0.1, 0.1, 0.2, 0.2], dtype=tf.float32
