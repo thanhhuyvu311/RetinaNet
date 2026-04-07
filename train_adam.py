@@ -55,12 +55,12 @@ if __name__ == '__main__':
     # --- XU LY DATASET VA GAN NHAN (GIỮ NGUYÊN NHƯ FILE CŨ) ---#
 
     # [TILING - ĐỔI] trỏ sang CSV tile mới (tạo bởi main_step_123.py + chia_data.py)
-    train_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/train_data.csv'
-    val_csv_path   = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/valid_data.csv'
+    train_csv_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/train_data2.csv'
+    val_csv_path   = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/valid_data2.csv'
     raw_train_data = preprocessing_data_before_training.change_string2number(train_csv_path)
     raw_val_data = preprocessing_data_before_training.change_string2number(val_csv_path)
     train_dataset = preprocessing_data_before_training.create_dataset_from_dataframe(raw_train_data).shuffle(
-        buffer_size=500)
+        buffer_size=1000)
     val_dataset = preprocessing_data_before_training.create_dataset_from_dataframe(raw_val_data)
 
     # doc anh,resize,scale bdb
@@ -120,10 +120,11 @@ if __name__ == '__main__':
 
     resnet50_backbone = resnet_50_backbone()
     model = RetinaNet(num_classes=num_classes, backbone=resnet50_backbone)
+
     """
-     # ====== ĐOẠN CODE MỚI ĐỂ LOAD WEIGHTS CŨ ======
+    # ====== ĐOẠN CODE MỚI ĐỂ LOAD WEIGHTS CŨ ======
     #weight_path = os.path.join(base_dir, 'weight_store', '300epochs_256_adam_auto.weights.h5')
-    weight_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/512_.weights.h5'
+    weight_path = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512-new-.weights.h5'
     # Kiểm tra xem file weights có tồn tại không
     if os.path.exists(weight_path):
         print(f"🔥🔥 Phát hiện 'não' cũ tại: {weight_path}")
@@ -138,9 +139,8 @@ if __name__ == '__main__':
     else:
         print("🌟 Không tìm thấy file weights cũ. Mô hình sẽ học lại từ đầu như một tờ giấy trắng!")
     # ==============================================
+
     """
-
-
 
     # [FIX TẮT THỞ LR]: Dùng thuật toán Adam với learning rate cố định
     optimizer = tf.keras.optimizers.Adam(learning_rate=5e-5)
@@ -164,7 +164,7 @@ if __name__ == '__main__':
         ),
 
         tf.keras.callbacks.ModelCheckpoint(
-            filepath=weight_folder + "/retinanet_tiled_512.weights.h5",  # [TILING - ĐỔI] không ghi đè model cũ
+            filepath=weight_folder + "/retinanet_tiled_512-new-.weights.h5",  # [TILING - ĐỔI] không ghi đè model cũ
             monitor="val_loss",
             save_best_only=True,
             save_weights_only=True,
@@ -192,5 +192,5 @@ if __name__ == '__main__':
     model_store_folder = os.path.join(base_dir, 'model_store')
     hist_store_folder = os.path.join(base_dir, 'hist_store')
     os.makedirs(hist_store_folder, exist_ok=True)
-    hist_df.to_csv(hist_store_folder + '/retinanet_tiled_512.csv')  # [TILING - ĐỔI] không ghi đè history cũ
+    hist_df.to_csv(hist_store_folder + '/retinanet_tiled_512-new-.csv')  # [TILING - ĐỔI] không ghi đè history cũ
 

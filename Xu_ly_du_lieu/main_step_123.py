@@ -7,7 +7,7 @@ from tiling_utils import generate_tile_coords, get_bboxes_for_tile, crop_and_sav
 
 if __name__ == '__main__':
     data_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
-    anno_dir = os.path.join(data_dir, 'anno_test')  # lay dia chi thuc muc anno
+    anno_dir = os.path.join(data_dir, 'anno')  # lay dia chi thuc muc anno
     img_dir = os.path.join(data_dir, 'imgs')
 
     # [TILING - THÊM MỚI] tạo thư mục lưu ảnh tile (nếu chưa tồn tại)
@@ -99,6 +99,6 @@ if __name__ == '__main__':
 
     # [TILING - ĐỔI TÊN] lưu ra file CSV mới để không ghi đè CSV gốc
     os.chdir(data_dir + '/csv_file/')
-    grouped_df.to_csv('data_information_tiled.csv', index=False)   # đổi từ data_information_grouped_thermal_drone.csv
-    print(f"Xong! Đã tạo {len(xml_list)} tile records → data_information_tiled.csv")
+    grouped_df.to_csv('data_information_tiled_2.csv', index=False)   # đổi từ data_information_grouped_thermal_drone.csv
+    #print(f"Xong! Đã tạo {len(xml_list)} tile records → data_information_tiled.csv")
     print(f"Ảnh tile được lưu tại: {tile_dir}")

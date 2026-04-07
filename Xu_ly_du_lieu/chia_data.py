@@ -5,7 +5,7 @@ if __name__ == "__main__":
     data_dir = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc'
     csv_file = os.path.join(data_dir,'csv_file')
 
-    read_csv = pd.read_csv(csv_file+'/data_information_tiled.csv')
+    read_csv = pd.read_csv(csv_file+'/data_information_tiled_2.csv')
     #lay tat ca ten trong path_img vao 1 mang
     unique_file = read_csv['path_img'].unique()
 
@@ -22,8 +22,8 @@ if __name__ == "__main__":
     print(f"so anh trong tap test: {len(test_data)}")
     print(f"so anh trong tap valid: {len(valid_data)}")
 
-    train_df.to_csv(csv_file+'/train_data.csv',index=False)
-    valid_df.to_csv(csv_file+'/valid_data.csv',index=False)
-    test_df.to_csv(csv_file+'/test_data.csv',index=False)
+    train_df.to_csv(csv_file+'/train_data2.csv',index=False)
+    valid_df.to_csv(csv_file+'/valid_data2.csv',index=False)
+    test_df.to_csv(csv_file+'/test_data2.csv',index=False)
 
     print('Chia data thanh cong')

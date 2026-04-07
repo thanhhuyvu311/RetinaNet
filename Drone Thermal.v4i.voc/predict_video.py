@@ -15,8 +15,8 @@ from Xu_ly_du_lieu.tiling_utils import generate_tile_coords, apply_global_nms
 TARGET_SIZE = 512
 WEIGHT_PATH = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/weight_store/retinanet_tiled_512-new-.weights.h5'
 
-INPUT_VIDEO  = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/in_test_2.mp4'
-OUTPUT_VIDEO = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/out_test2-new-weights-.mp4'
+INPUT_VIDEO  = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/drone_move.mp4'
+OUTPUT_VIDEO = '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/video_drone/drone_move_out.mp4'
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:

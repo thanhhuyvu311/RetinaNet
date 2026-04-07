@@ -67,6 +67,6 @@ def analyze_object_sizes(csv_path, target_size):
 
 # [TILING - ĐỔI] chạy trên CSV tile mới, target_size = 640 (hoặc 512 tùy bạn chọn)
 analyze_object_sizes(
-    '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/data_information_tiled.csv',
+    '/home/huy/Documents/de_tai_tot_nghiep/Drone Thermal.v4i.voc/csv_file/data_information_tiled_2.csv',
     target_size=512
 )

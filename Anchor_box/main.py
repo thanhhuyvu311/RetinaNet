@@ -21,8 +21,9 @@ class Anchor_box:
     """
 
     def __init__(self):
-        #self.aspect_ratios = [0.5,1.0,2.0]
-        self.aspect_ratios = [0.4, 0.7, 1.1]
+        #self.aspect_ratios = [0.5,1.0,2.0] origin from retina
+        #self.aspect_ratios = [0.4, 0.7, 1.1] adjust for tile_1
+        self.aspect_ratios = [0.4, 0.65, 0.9]
         self.scales = [2 ** x for x in [0,1/3,2/3]]
         self._num_anchors = len(self.aspect_ratios) * len(self.scales)
         self._strides = [2 ** i for i in range(3,8)]
@@ -33,9 +34,9 @@ class Anchor_box:
         # → Cần chạy lại Xu_ly_du_lieu/analize_histogram_data.py trên train_tiled_data.csv
         #   để đo phân phối kích thước object mới, rồi cập nhật dòng này.
         # Ước tính ban đầu (tăng ~2×): [x ** 2 for x in [4.0, 8.0, 16.0, 20.0, 24.0]]
-        self._areas = [x ** 2 for x in [12.0, 24.0, 48.0, 96.0, 192.0]]
+        #self._areas = [x ** 2 for x in [12.0, 24.0, 48.0, 96.0, 192.0]] adjust for tile_1
         #self._areas = [x ** 2 for x in [1.8, 2.8, 4.8, 6.0, 8.0]]
-        #self._areas = [x ** 2 for x in [8.0, 16.0, 24.0, 36.0, 64.0]]
+        self._areas = [x ** 2 for x in [8.0, 20.0, 40.0, 80.0, 160.0]]
         self._anchor_dims = self._compute_dims()
     def _compute_dims(self):
         """
