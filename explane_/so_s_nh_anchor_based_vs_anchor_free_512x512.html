@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>So Sánh Anchor-Based vs Anchor-Free</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .canvas-container { position: relative; width: 512px; height: 512px; max-width: 100%; }
+        canvas { 
+            position: absolute; top: 0; left: 0; 
+            width: 100%; height: 100%;
+            cursor: crosshair; 
+        }
+        .drag-mode { cursor: grab !important; }
+        .drag-mode:active { cursor: grabbing !important; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-8 min-h-screen">
+
+    <div class="max-w-[1200px] mx-auto">
+        <header class="mb-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h1 class="text-3xl font-bold text-indigo-700 mb-2">Mô Phỏng Không Gian: RetinaNet 512x512</h1>
+            <p class="text-slate-600 text-sm mb-4">
+                So sánh trực quan cơ chế tạo hộp neo (Anchor-Based) và điểm tâm (Anchor-Free Center-Point). <br>
+                <strong>Hướng dẫn:</strong> Kéo thả ô màu đỏ (Đại diện cho người/vật thể) hoặc rê chuột quanh lưới để xem các Box/Point được sinh ra.
+            </p>
+            
+            <div class="flex flex-wrap gap-4 items-center bg-slate-100 p-3 rounded-lg border border-slate-200">
+                <span class="font-semibold text-sm">Chọn Tầng (Feature Map):</span>
+                <label class="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded shadow-sm border hover:bg-indigo-50 transition">
+                    <input type="radio" name="fpn_level" value="3" checked onchange="changeLevel(3, 8)">
+                    <span class="text-sm font-medium">P3 (Stride 8)</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded shadow-sm border hover:bg-indigo-50 transition">
+                    <input type="radio" name="fpn_level" value="4" onchange="changeLevel(4, 16)">
+                    <span class="text-sm font-medium">P4 (Stride 16)</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded shadow-sm border hover:bg-indigo-50 transition">
+                    <input type="radio" name="fpn_level" value="5" onchange="changeLevel(5, 32)">
+                    <span class="text-sm font-medium">P5 (Stride 32)</span>
+                </label>
+                
+                <div class="ml-auto flex gap-2">
+                    <button onclick="resizeGT(24, 60)" class="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded text-xs font-bold transition">Vật Thể Nhỏ (Người xa)</button>
+                    <button onclick="resizeGT(80, 150)" class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs font-bold transition">Vật Thể Vừa</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-8 justify-center items-start">
+            
+            <!-- LEFT: ANCHOR BASED -->
+            <div class="flex-1 w-full flex flex-col items-center">
+                <div class="w-full bg-white p-4 rounded-xl shadow-md border border-slate-200 mb-4">
+                    <h2 class="text-xl font-bold text-rose-600 mb-1 text-center">Phương pháp Cũ (Anchor-Based)</h2>
+                    <p class="text-xs text-center text-slate-500 h-8">Mỗi ô lưới sinh 9 hộp. Tính IoU để gán nhãn.</p>
+                    
+                    <div class="flex justify-between text-sm mt-3 pt-3 border-t">
+                        <div>Tổng số hộp: <strong id="old-total" class="text-rose-600">36,864</strong></div>
+                        <div>Số hộp khớp (IoU>0.4): <strong id="old-matched" class="text-green-600">0</strong></div>
+                    </div>
+                </div>
+
+                <div class="canvas-container bg-white border-2 border-slate-300 rounded overflow-hidden shadow-inner">
+                    <canvas id="canvasOld" width="512" height="512"></canvas>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 text-center max-w-[512px]">Rê chuột vào một ô lưới để xem 9 hộp neo được sinh ra tại vị trí đó.</p>
+            </div>
+
+            <!-- RIGHT: ANCHOR FREE -->
+            <div class="flex-1 w-full flex flex-col items-center">
+                <div class="w-full bg-white p-4 rounded-xl shadow-md border border-slate-200 mb-4">
+                    <h2 class="text-xl font-bold text-indigo-600 mb-1 text-center">Phương pháp Mới (Anchor-Free)</h2>
+                    <p class="text-xs text-center text-slate-500 h-8">Mỗi ô lưới sinh 1 điểm tâm. Gán nhãn dựa trên khoảng cách.</p>
+                    
+                    <div class="flex justify-between text-sm mt-3 pt-3 border-t">
+                        <div>Tổng số điểm: <strong id="new-total" class="text-indigo-600">4,096</strong></div>
+                        <div>Số điểm chịu trách nhiệm: <strong id="new-matched" class="text-green-600">0</strong></div>
+                    </div>
+                </div>
+
+                <div class="canvas-container bg-white border-2 border-slate-300 rounded overflow-hidden shadow-inner">
+                    <canvas id="canvasNew" width="512" height="512"></canvas>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 text-center max-w-[512px]">Hệ thống tự động tìm điểm nằm trong vật thể, hoặc điểm gần nhất (nếu vật thể quá nhỏ).</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const canvasOld = document.getElementById('canvasOld');
+        const ctxOld = canvasOld.getContext('2d');
+        const canvasNew = document.getElementById('canvasNew');
+        const ctxNew = canvasNew.getContext('2d');
+
+        // State variables
+        const IMG_SIZE = 512;
+        let currentLevel = 3;
+        let currentStride = 8;
+        let hoverX = -100;
+        let hoverY = -100;
+
+        // Ground Truth object (x, y, w, h)
+        let gtBox = { x: 200, y: 200, w: 80, h: 150 };
+        let isDragging = false;
+        let activeCanvas = null;
+        let dragOffX = 0, dragOffY = 0;
+
+        // Anchor configurations (Standard RetinaNet settings)
+        const ratios = [0.5, 1.0, 2.0];
+        const scales = [1, Math.pow(2, 1/3), Math.pow(2, 2/3)]; 
+
+        // UI Elements
+        const oldTotalEl = document.getElementById('old-total');
+        const oldMatchedEl = document.getElementById('old-matched');
+        const newTotalEl = document.getElementById('new-total');
+        const newMatchedEl = document.getElementById('new-matched');
+
+        function changeLevel(level, stride) {
+            currentLevel = level;
+            currentStride = stride;
+            
+            // Update UI totals
+            const gridCells = Math.pow(IMG_SIZE / stride, 2);
+            oldTotalEl.innerText = (gridCells * 9).toLocaleString();
+            newTotalEl.innerText = gridCells.toLocaleString();
+            
+            draw();
+        }
+
+        function resizeGT(w, h) {
+            gtBox.w = w;
+            gtBox.h = h;
+            draw();
+        }
+
+        function setupInteractions(canvas) {
+            canvas.addEventListener('mousedown', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+                
+                if (mx >= gtBox.x && mx <= gtBox.x + gtBox.w &&
+                    my >= gtBox.y && my <= gtBox.y + gtBox.h) {
+                    isDragging = true;
+                    activeCanvas = canvas;
+                    dragOffX = mx - gtBox.x;
+                    dragOffY = my - gtBox.y;
+                    canvasOld.classList.add('drag-mode');
+                    canvasNew.classList.add('drag-mode');
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+
+                if (isDragging) {
+                    gtBox.x = mx - dragOffX;
+                    gtBox.y = my - dragOffY;
+                    // Clamp to screen
+                    gtBox.x = Math.max(0, Math.min(IMG_SIZE - gtBox.w, gtBox.x));
+                    gtBox.y = Math.max(0, Math.min(IMG_SIZE - gtBox.h, gtBox.y));
+                } else {
+                    hoverX = mx;
+                    hoverY = my;
+                }
+                draw();
+            });
+
+            canvas.addEventListener('mouseup', endDrag);
+            canvas.addEventListener('mouseleave', () => {
+                endDrag();
+                hoverX = -100; hoverY = -100;
+                draw();
+            });
+        }
+
+        function endDrag() {
+            isDragging = false;
+            activeCanvas = null;
+            canvasOld.classList.remove('drag-mode');
+            canvasNew.classList.remove('drag-mode');
+        }
+
+        setupInteractions(canvasOld);
+        setupInteractions(canvasNew);
+
+        function calculateIoU(box1, box2) {
+            // box = {x, y, w, h}
+            const xA = Math.max(box1.x, box2.x);
+            const yA = Math.max(box1.y, box2.y);
+            const xB = Math.min(box1.x + box1.w, box2.x + box2.w);
+            const yB = Math.min(box1.y + box1.h, box2.y + box2.h);
+
+            const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+            if (interArea === 0) return 0;
+
+            const box1Area = box1.w * box1.h;
+            const box2Area = box2.w * box2.h;
+            return interArea / (box1Area + box2Area - interArea);
+        }
+
+        function getBaseAnchorSize() {
+            return currentStride * 4; // Typical RetinaNet base anchor size
+        }
+
+        function drawOldMethod() {
+            ctxOld.clearRect(0, 0, IMG_SIZE, IMG_SIZE);
+            drawGrid(ctxOld);
+            
+            let matchedCount = 0;
+            const baseSize = getBaseAnchorSize();
+
+            // Optimization: Only check IoU for grid cells near the GT box to keep 60fps
+            const minGridX = Math.max(0, Math.floor((gtBox.x - baseSize*2) / currentStride) * currentStride);
+            const maxGridX = Math.min(IMG_SIZE, (Math.ceil((gtBox.x + gtBox.w + baseSize*2) / currentStride) + 1) * currentStride);
+            const minGridY = Math.max(0, Math.floor((gtBox.y - baseSize*2) / currentStride) * currentStride);
+            const maxGridY = Math.min(IMG_SIZE, (Math.ceil((gtBox.y + gtBox.h + baseSize*2) / currentStride) + 1) * currentStride);
+
+            // 1. Draw matching anchors (IoU > 0.4)
+            for (let x = minGridX; x <= maxGridX; x += currentStride) {
+                for (let y = minGridY; y <= maxGridY; y += currentStride) {
+                    const cx = x + currentStride / 2;
+                    const cy = y + currentStride / 2;
+                    
+                    for (let s of scales) {
+                        for (let r of ratios) {
+                            const w = baseSize * s * Math.sqrt(r);
+                            const h = baseSize * s / Math.sqrt(r);
+                            const anchorBox = { x: cx - w/2, y: cy - h/2, w: w, h: h };
+                            
+                            const iou = calculateIoU(anchorBox, gtBox);
+                            if (iou > 0.4) { // Typical positive threshold
+                                matchedCount++;
+                                ctxOld.strokeStyle = `rgba(34, 197, 94, ${iou})`; // Green with opacity based on IoU
+                                ctxOld.lineWidth = 1.5;
+                                ctxOld.strokeRect(anchorBox.x, anchorBox.y, anchorBox.w, anchorBox.h);
+                            }
+                        }
+                    }
+                }
+            }
+            oldMatchedEl.innerText = matchedCount;
+
+            // 2. Draw hover preview of 9 boxes
+            if (hoverX >= 0 && hoverY >= 0) {
+                const hx = Math.floor(hoverX / currentStride) * currentStride;
+                const hy = Math.floor(hoverY / currentStride) * currentStride;
+                const cx = hx + currentStride / 2;
+                const cy = hy + currentStride / 2;
+                
+                // Draw grid cell highlight
+                ctxOld.fillStyle = 'rgba(99, 102, 241, 0.2)';
+                ctxOld.fillRect(hx, hy, currentStride, currentStride);
+
+                // Draw the 9 boxes
+                for (let s of scales) {
+                    for (let r of ratios) {
+                        const w = baseSize * s * Math.sqrt(r);
+                        const h = baseSize * s / Math.sqrt(r);
+                        ctxOld.strokeStyle = 'rgba(225, 29, 72, 0.6)'; // Red
+                        ctxOld.lineWidth = 1;
+                        ctxOld.strokeRect(cx - w/2, cy - h/2, w, h);
+                    }
+                }
+                // Draw center
+                ctxOld.fillStyle = '#be123c';
+                ctxOld.beginPath(); ctxOld.arc(cx, cy, 3, 0, Math.PI * 2); ctxOld.fill();
+            }
+
+            // Draw Ground Truth Box
+            drawGT(ctxOld);
+        }
+
+        function drawNewMethod() {
+            ctxNew.clearRect(0, 0, IMG_SIZE, IMG_SIZE);
+            drawGrid(ctxNew);
+
+            let matchedCount = 0;
+            let closestDist = Infinity;
+            let closestPoint = null;
+
+            const gtCenterX = gtBox.x + gtBox.w / 2;
+            const gtCenterY = gtBox.y + gtBox.h / 2;
+
+            // 1. Identify Center Points
+            for (let x = 0; x < IMG_SIZE; x += currentStride) {
+                for (let y = 0; y < IMG_SIZE; y += currentStride) {
+                    const cx = x + currentStride / 2; // "+ 0.5" in tf code
+                    const cy = y + currentStride / 2;
+                    
+                    let isPositive = false;
+                    
+                    // Center-Region Check (Is point inside GT?)
+                    if (cx >= gtBox.x && cx <= gtBox.x + gtBox.w && 
+                        cy >= gtBox.y && cy <= gtBox.y + gtBox.h) {
+                        isPositive = true;
+                        matchedCount++;
+                    }
+
+                    // Track closest point for "tiny object" handling
+                    const dist = Math.sqrt(Math.pow(cx - gtCenterX, 2) + Math.pow(cy - gtCenterY, 2));
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestPoint = {cx, cy};
+                    }
+
+                    // Draw all points faintly
+                    ctxNew.fillStyle = isPositive ? '#22c55e' : (currentStride === 8 ? 'rgba(148, 163, 184, 0.3)' : 'rgba(148, 163, 184, 0.7)');
+                    const radius = isPositive ? 4 : (currentStride === 8 ? 1.5 : 2.5);
+                    ctxNew.beginPath();
+                    ctxNew.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctxNew.fill();
+
+                    // If positive, draw the regression vector (4 distances)
+                    if (isPositive) {
+                        ctxNew.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+                        ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(gtBox.x, cy); ctxNew.stroke(); // left
+                        ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(cx, gtBox.y); ctxNew.stroke(); // top
+                        ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(gtBox.x + gtBox.w, cy); ctxNew.stroke(); // right
+                        ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(cx, gtBox.y + gtBox.h); ctxNew.stroke(); // bottom
+                    }
+                }
+            }
+
+            // Fallback for Tiny Objects (No point fell inside)
+            if (matchedCount === 0 && closestPoint) {
+                matchedCount = 1;
+                const {cx, cy} = closestPoint;
+                ctxNew.fillStyle = '#f59e0b'; // Orange to indicate fallback assignment
+                ctxNew.beginPath(); ctxNew.arc(cx, cy, 5, 0, Math.PI * 2); ctxNew.fill();
+                
+                ctxNew.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+                ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(gtBox.x, cy); ctxNew.stroke(); 
+                ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(cx, gtBox.y); ctxNew.stroke(); 
+                ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(gtBox.x + gtBox.w, cy); ctxNew.stroke(); 
+                ctxNew.beginPath(); ctxNew.moveTo(cx, cy); ctxNew.lineTo(cx, gtBox.y + gtBox.h); ctxNew.stroke(); 
+            }
+
+            newMatchedEl.innerText = matchedCount;
+
+            // Highlight Hovered Point Region
+            if (hoverX >= 0 && hoverY >= 0) {
+                const hx = Math.floor(hoverX / currentStride) * currentStride;
+                const hy = Math.floor(hoverY / currentStride) * currentStride;
+                ctxNew.fillStyle = 'rgba(99, 102, 241, 0.2)';
+                ctxNew.fillRect(hx, hy, currentStride, currentStride);
+            }
+
+            // Draw Ground Truth Box
+            drawGT(ctxNew);
+        }
+
+        function drawGrid(ctx) {
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            // Draw lighter grid for Stride 8 to avoid clutter
+            if (currentStride === 8) ctx.strokeStyle = '#f8fafc';
+
+            for (let i = 0; i <= IMG_SIZE; i += currentStride) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, IMG_SIZE); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(IMG_SIZE, i); ctx.stroke();
+            }
+        }
+
+        function drawGT(ctx) {
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.15)'; // Light red
+            ctx.strokeStyle = '#ef4444'; // Red border
+            ctx.lineWidth = 2;
+            
+            // Draw a crosshair in the center of GT
+            const ctxX = gtBox.x + gtBox.w/2;
+            const ctxY = gtBox.y + gtBox.h/2;
+
+            ctx.fillRect(gtBox.x, gtBox.y, gtBox.w, gtBox.h);
+            ctx.strokeRect(gtBox.x, gtBox.y, gtBox.w, gtBox.h);
+            
+            // Center crosshair
+            ctx.beginPath(); ctx.moveTo(ctxX - 5, ctxY); ctx.lineTo(ctxX + 5, ctxY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(ctxX, ctxY - 5); ctx.lineTo(ctxX, ctxY + 5); ctx.stroke();
+        }
+
+        function draw() {
+            drawOldMethod();
+            drawNewMethod();
+        }
+
+        // Initial setup
+        changeLevel(4, 16); // Default to P4
+
+    </script>
+</body>
+</html>

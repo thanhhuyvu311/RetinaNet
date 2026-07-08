@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIoU vs L1 Simulation</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; margin: 0; padding: 20px; }
+        canvas { background: white; border: 2px solid #ccc; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: crosshair; }
+        .dashboard { display: flex; gap: 20px; margin-top: 20px; }
+        .metric { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 150px; text-align: center; }
+        h3 { margin: 0 0 10px 0; font-size: 16px; color: #333; }
+        .value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .explanation { margin-top: 20px; max-width: 800px; line-height: 1.6; color: #555; }
+    </style>
+</head>
+<body>
+
+    <h2>Mô phỏng DIoU vs L1 Loss</h2>
+    <p>Di chuột vào khung canvas để di chuyển Bounding Box dự đoán (Đỏ).</p>
+
+    <canvas id="simCanvas" width="800" height="400"></canvas>
+
+    <div class="dashboard">
+        <div class="metric">
+            <h3>L1 Loss</h3>
+            <div class="value" id="l1-val">0.00</div>
+        </div>
+        <div class="metric">
+            <h3>IoU</h3>
+            <div class="value" id="iou-val" style="color: #28a745;">0.00</div>
+        </div>
+        <div class="metric">
+            <h3>DIoU</h3>
+            <div class="value" id="diou-val" style="color: #dc3545;">0.00</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Ground Truth box
+        const gt = { cx: 400, cy: 200, w: 150, h: 100 };
+        // Predicted box (follows mouse)
+        let pred = { cx: 200, cy: 100, w: 150, h: 100 };
+
+        function drawBox(box, color, label) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            const x = box.cx - box.w / 2;
+            const y = box.cy - box.h / 2;
+            ctx.strokeRect(x, y, box.w, box.h);
+            
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.2;
+            ctx.fillRect(x, y, box.w, box.h);
+            ctx.globalAlpha = 1.0;
+
+            // Draw center
+            ctx.beginPath();
+            ctx.arc(box.cx, box.cy, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function updateMetrics() {
+            // Calculate L1 (using centers and sizes)
+            const l1 = Math.abs(pred.cx - gt.cx) + Math.abs(pred.cy - gt.cy) + 
+                       Math.abs(pred.w - gt.w) + Math.abs(pred.h - gt.h);
+
+            // Calculate IoU
+            const gtMinX = gt.cx - gt.w/2, gtMaxX = gt.cx + gt.w/2;
+            const gtMinY = gt.cy - gt.h/2, gtMaxY = gt.cy + gt.h/2;
+            
+            const predMinX = pred.cx - pred.w/2, predMaxX = pred.cx + pred.w/2;
+            const predMinY = pred.cy - pred.h/2, predMaxY = pred.cy + pred.h/2;
+
+            const interMinX = Math.max(gtMinX, predMinX);
+            const interMinY = Math.max(gtMinY, predMinY);
+            const interMaxX = Math.min(gtMaxX, predMaxX);
+            const interMaxY = Math.min(gtMaxY, predMaxY);
+
+            const interW = Math.max(0, interMaxX - interMinX);
+            const interH = Math.max(0, interMaxY - interMinY);
+            const interArea = interW * interH;
+
+            const gtArea = gt.w * gt.h;
+            const predArea = pred.w * pred.h;
+            const unionArea = gtArea + predArea - interArea;
+            
+            const iou = interArea / unionArea;
+
+            // Calculate DIoU components
+            // 1. Center distance squared (rho^2)
+            const rho2 = Math.pow(pred.cx - gt.cx, 2) + Math.pow(pred.cy - gt.cy, 2);
+
+            // 2. Smallest enclosing box
+            const encMinX = Math.min(gtMinX, predMinX);
+            const encMinY = Math.min(gtMinY, predMinY);
+            const encMaxX = Math.max(gtMaxX, predMaxX);
+            const encMaxY = Math.max(gtMaxY, predMaxY);
+            
+            // 3. Enclosing box diagonal squared (c^2)
+            const encW = encMaxX - encMinX;
+            const encH = encMaxY - encMinY;
+            const c2 = Math.pow(encW, 2) + Math.pow(encH, 2);
+
+            const diou = iou - (rho2 / (c2 || 1));
+
+            // Draw Enclosing Box & Center Line
+            ctx.strokeStyle = '#6c757d'; // gray dashed
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(encMinX, encMinY, encW, encH);
+            ctx.setLineDash([]);
+
+            ctx.beginPath();
+            ctx.moveTo(gt.cx, gt.cy);
+            ctx.lineTo(pred.cx, pred.cy);
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+
+            // Update HTML
+            document.getElementById('l1-val').innerText = l1.toFixed(1);
+            document.getElementById('iou-val').innerText = iou.toFixed(3);
+            document.getElementById('diou-val').innerText = diou.toFixed(3);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBox(gt, '#28a745', 'Ground Truth');
+            drawBox(pred, '#dc3545', 'Predicted');
+            updateMetrics();
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            pred.cx = e.clientX - rect.left;
+            pred.cy = e.clientY - rect.top;
+            draw();
+        });
+
+        draw(); // init
+    </script>
+</body>
+</html>

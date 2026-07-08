@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inference Pipeline: Anchor-Free</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #canvas-wrapper { position: relative; width: 512px; height: 512px; background-color: #0f172a; }
+        canvas { position: absolute; top: 0; left: 0; border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="bg-slate-100 p-4 md:p-8 min-h-screen flex flex-col items-center">
+
+    <div class="max-w-[1200px] w-full bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-800 mb-2">Bóc Tách Inference: Làm sao mô hình tìm thấy vật thể?</h1>
+        <p class="text-slate-600">
+            Giả lập quá trình suy luận trên ảnh nhiệt 512x512. Mô hình dự đoán tại <strong>tất cả</strong> các điểm lưới. Hãy dùng các thanh gạt bên dưới để xem cách hệ thống lọc ra kết quả cuối cùng.
+        </p>
+    </div>
+
+    <div class="max-w-[1200px] w-full flex flex-col xl:flex-row gap-8 items-start">
+        
+        <!-- Left: Canvas -->
+        <div class="flex-shrink-0 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+            <div id="canvas-wrapper" class="border-2 border-slate-700 overflow-hidden shadow-inner bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]">
+                <!-- Canvas hiển thị ảnh nền giả lập ảnh nhiệt -->
+                <canvas id="bgCanvas" width="512" height="512"></canvas>
+                <!-- Canvas vẽ các predictions -->
+                <canvas id="inferCanvas" width="512" height="512"></canvas>
+            </div>
+            <p class="text-xs text-center text-slate-500 mt-3 font-mono">Ảnh Nhiệt Đầu Vào (Drone) - Kích thước 512x512</p>
+        </div>
+
+        <!-- Right: Controls & Logic -->
+        <div class="flex-grow w-full flex flex-col gap-4">
+            
+            <!-- Step 1: Raw Predictions -->
+            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800 mb-2">Bước 1: Dự đoán thô (Raw Predictions)</h2>
+                <p class="text-sm text-slate-600 mb-3">Mạng neural xuất ra kết quả cho <strong>tất cả 4096 điểm</strong> trên lưới P3 (Stride=8). Hầu hết điểm nền (background) dự đoán xác suất rác, hộp rác.</p>
+                <div class="flex items-center gap-3 bg-white p-3 rounded border">
+                    <span class="font-mono text-sm text-slate-500 w-32">Tổng dự đoán:</span>
+                    <strong class="text-slate-800 text-lg" id="raw-count">4096</strong>
+                </div>
+            </div>
+
+            <!-- Step 2: Confidence Threshold -->
+            <div class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-bold text-blue-800">Bước 2: Lọc Xác Suất (Conf. Threshold)</h2>
+                    <span class="bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded text-sm" id="thresh-val">0.05</span>
+                </div>
+                <p class="text-sm text-blue-600 mb-4">Loại bỏ các điểm lưới báo cáo Xác Suất (Objectness Score) thấp hơn ngưỡng này. (Classification Head)</p>
+                
+                <input type="range" id="conf-slider" min="0" max="100" value="5" class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer">
+                
+                <div class="flex items-center gap-3 bg-white p-3 rounded border border-blue-100 mt-4">
+                    <span class="font-mono text-sm text-slate-500 w-32">Số hộp giữ lại:</span>
+                    <strong class="text-blue-600 text-lg" id="filtered-count">...</strong>
+                </div>
+            </div>
+
+            <!-- Step 3: NMS -->
+            <div class="bg-green-50 p-5 rounded-xl border border-green-200">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-bold text-green-800">Bước 3: Loại Hộp Trùng (NMS)</h2>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="nms-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    </label>
+                </div>
+                <p class="text-sm text-green-700 mb-3">Nhiều điểm lưới kề nhau cùng phát hiện 1 người. Dùng Non-Maximum Suppression (IoU > 0.4) để chỉ giữ lại hộp có xác suất cao nhất.</p>
+                
+                <div class="flex items-center gap-3 bg-white p-3 rounded border border-green-100">
+                    <span class="font-mono text-sm text-slate-500 w-32">Số hộp cuối cùng:</span>
+                    <strong class="text-green-600 text-2xl" id="final-count">...</strong>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('inferCanvas');
+        const bgCanvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        const IMG_SIZE = 512;
+        const STRIDE = 8;
+        
+        // Mock targets (Giả lập có 2 người trong ảnh chụp nhiệt)
+        const targets = [
+            { cx: 124, cy: 150, w: 32, h: 44, intensity: 1.0 }, // Người 1
+            { cx: 400, cy: 350, w: 40, h: 56, intensity: 0.9 }  // Người 2
+        ];
+
+        let rawPredictions = []; // Lưu trữ toàn bộ mảng [cx, cy, score, l, t, r, b]
+
+        // Khởi tạo đồ họa nền
+        function drawBackground() {
+            bgCtx.fillStyle = '#0f172a'; // Nền đen/xanh đen (ảnh nhiệt lạnh)
+            bgCtx.fillRect(0, 0, IMG_SIZE, IMG_SIZE);
+            
+            // Vẽ 2 đốm sáng (nhiệt độ cơ thể)
+            targets.forEach(t => {
+                const gradient = bgCtx.createRadialGradient(t.cx, t.cy, 2, t.cx, t.cy, Math.max(t.w, t.h));
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)'); // Trắng xóa ở giữa
+                gradient.addColorStop(0.2, 'rgba(234, 179, 8, 0.6)'); // Vàng
+                gradient.addColorStop(0.5, 'rgba(225, 29, 72, 0.3)'); // Đỏ
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                
+                bgCtx.fillStyle = gradient;
+                bgCtx.beginPath();
+                bgCtx.ellipse(t.cx, t.cy, t.w/1.2, t.h/1.2, 0, 0, Math.PI*2);
+                bgCtx.fill();
+            });
+        }
+
+        // Tạo mảng output giả lập của mô hình
+        function generateModelOutput() {
+            for (let i = 0; i < IMG_SIZE; i += STRIDE) {
+                for (let j = 0; j < IMG_SIZE; j += STRIDE) {
+                    const cx = i + STRIDE/2;
+                    const cy = j + STRIDE/2;
+                    
+                    let score = Math.random() * 0.05; // Điểm nền mặc định rất thấp (nhiễu)
+                    let l = Math.random() * 50;
+                    let t = Math.random() * 50;
+                    let r = Math.random() * 50;
+                    let b = Math.random() * 50;
+
+                    // Nếu điểm lưới nằm gần khu vực có vật thể, điểm score sẽ tăng mạnh
+                    targets.forEach(tgt => {
+                        const dist = Math.hypot(cx - tgt.cx, cy - tgt.cy);
+                        // Vùng Positive thực sự (nằm trong hộp)
+                        if (Math.abs(cx - tgt.cx) < tgt.w/2 && Math.abs(cy - tgt.cy) < tgt.h/2) {
+                            // Càng gần tâm, điểm tự tin càng cao (vd: 0.8 -> 0.99)
+                            score = Math.min(0.99, tgt.intensity - (dist / 100) + (Math.random()*0.1));
+                            // Hồi quy lý tưởng
+                            l = cx - (tgt.cx - tgt.w/2) + (Math.random()*4 - 2);
+                            t = cy - (tgt.cy - tgt.h/2) + (Math.random()*4 - 2);
+                            r = (tgt.cx + tgt.w/2) - cx + (Math.random()*4 - 2);
+                            b = (tgt.cy + tgt.h/2) - cy + (Math.random()*4 - 2);
+                        } else if (dist < 60) {
+                            // Xung quanh vật thể (False Positives hoặc Low Confidence)
+                            score = Math.random() * 0.4;
+                            // Hồi quy nhiễu loạn nhưng vẫn loanh quanh khu đó
+                            l = tgt.w/2 + (Math.random()*20);
+                            t = tgt.h/2 + (Math.random()*20);
+                            r = tgt.w/2 + (Math.random()*20);
+                            b = tgt.h/2 + (Math.random()*20);
+                        }
+                    });
+
+                    // Decode ngược ra Box (x_min, y_min, w, h) để vẽ
+                    const box = {
+                        x: cx - l,
+                        y: cy - t,
+                        w: l + r,
+                        h: t + b
+                    };
+
+                    rawPredictions.push({
+                        cx, cy, score, box
+                    });
+                }
+            }
+            document.getElementById('raw-count').innerText = rawPredictions.length;
+        }
+
+        function calculateIoU(box1, box2) {
+            const xA = Math.max(box1.x, box2.x);
+            const yA = Math.max(box1.y, box2.y);
+            const xB = Math.min(box1.x + box1.w, box2.x + box2.w);
+            const yB = Math.min(box1.y + box1.h, box2.y + box2.h);
+
+            const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+            if (interArea === 0) return 0;
+            const box1Area = box1.w * box1.h;
+            const box2Area = box2.w * box2.h;
+            return interArea / (box1Area + box2Area - interArea);
+        }
+
+        function runInferencePipeline() {
+            // Lấy giá trị UI
+            const threshold = document.getElementById('conf-slider').value / 100;
+            document.getElementById('thresh-val').innerText = threshold.toFixed(2);
+            const useNMS = document.getElementById('nms-toggle').checked;
+
+            // BƯỚC 2: Threshold Filtering
+            let filteredPreds = rawPredictions.filter(p => p.score >= threshold);
+            document.getElementById('filtered-count').innerText = filteredPreds.length;
+
+            // BƯỚC 3: NMS (Non-Maximum Suppression)
+            let finalPreds = [];
+            if (useNMS) {
+                // Sắp xếp theo score giảm dần
+                filteredPreds.sort((a, b) => b.score - a.score);
+                
+                while (filteredPreds.length > 0) {
+                    // Lấy hộp có score cao nhất hiện tại đưa vào final
+                    const bestPred = filteredPreds.shift();
+                    finalPreds.push(bestPred);
+                    
+                    // Xóa tất cả các hộp còn lại có IoU lớn hơn 0.4 so với bestPred
+                    filteredPreds = filteredPreds.filter(p => calculateIoU(bestPred.box, p.box) < 0.4);
+                }
+            } else {
+                finalPreds = filteredPreds; // Không dùng NMS
+            }
+            
+            document.getElementById('final-count').innerText = finalPreds.length;
+
+            // RENDER CANVAS
+            ctx.clearRect(0, 0, IMG_SIZE, IMG_SIZE);
+
+            finalPreds.forEach(p => {
+                // Tô màu theo Score (Đỏ/Cam/Xanh)
+                let color = 'rgba(239, 68, 68, 1)'; // Đỏ (Default)
+                if (p.score > 0.7) color = 'rgba(34, 197, 94, 1)'; // Xanh lá
+                else if (p.score > 0.4) color = 'rgba(234, 179, 8, 1)'; // Vàng
+                
+                // Trạng thái Threshold thấp, không có NMS (Rất hỗn loạn)
+                if (threshold < 0.2 && !useNMS && p.score < 0.5) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.lineWidth = 0.5;
+                } else {
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = useNMS ? 2 : 1;
+                }
+
+                // Vẽ Bounding Box (Decode từ l, t, r, b)
+                ctx.strokeRect(p.box.x, p.box.y, p.box.w, p.box.h);
+
+                // Nếu có NMS, hiển thị thêm thông tin Điểm Tâm và Score
+                if (useNMS) {
+                    ctx.fillStyle = color;
+                    ctx.beginPath(); ctx.arc(p.cx, p.cy, 3, 0, Math.PI*2); ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 12px Arial';
+                    // ctx.fillText(`${(p.score*100).toFixed(0)}%`, p.box.x, Math.max(12, p.box.y - 4));
+                }
+            });
+        }
+
+        // Event Listeners
+        document.getElementById('conf-slider').addEventListener('input', runInferencePipeline);
+        document.getElementById('nms-toggle').addEventListener('change', runInferencePipeline);
+
+        // Khởi động
+        drawBackground();
+        generateModelOutput();
+        runInferencePipeline();
+
+    </script>
+</body>
+</html>

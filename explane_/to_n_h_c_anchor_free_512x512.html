@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toán Học Anchor-Free</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+        #canvas-wrapper { position: relative; width: 512px; height: 512px; background-color: #f8fafc; }
+        canvas { position: absolute; top: 0; left: 0; border-radius: 0.5rem; cursor: crosshair; }
+        .math-block { transition: all 0.2s; }
+        .highlight-text { color: #8b5cf6; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-slate-100 p-4 md:p-8 min-h-screen flex flex-col items-center">
+
+    <div class="max-w-[1200px] w-full bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-800 mb-2">Bóc Tách Toán Học: Anchor-Free Regression</h1>
+        <p class="text-slate-600">
+            Mô phỏng phép tính trên ảnh <strong class="text-slate-800">512x512</strong>. Vật thể Ground Truth: <strong class="text-rose-600 font-mono">[111, 28, 32, 44]</strong>. Tầng <strong class="text-indigo-600">P3 (Stride = 8)</strong>.<br>
+            <span class="text-sm italic text-slate-500">Rê chuột vào các chấm xanh (Center Points) bên trong khung đỏ để xem cách mô hình tính toán.</span>
+        </p>
+    </div>
+
+    <div class="max-w-[1200px] w-full flex flex-col xl:flex-row gap-8 items-start">
+        
+        <!-- Left: Canvas -->
+        <div class="flex-shrink-0 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+            <div id="canvas-wrapper" class="border-2 border-slate-300 overflow-hidden shadow-inner bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+                <canvas id="mathCanvas" width="512" height="512"></canvas>
+            </div>
+            <p class="text-xs text-center text-slate-400 mt-3 font-mono">Zoomed in Feature Map Grid (Stride=8)</p>
+        </div>
+
+        <!-- Right: Math Explanations -->
+        <div class="flex-grow w-full flex flex-col gap-4">
+            
+            <!-- Box Data -->
+            <div class="bg-rose-50 p-5 rounded-xl border border-rose-200">
+                <h2 class="text-lg font-bold text-rose-800 border-b border-rose-200 pb-2 mb-3">1. Ground Truth (Dữ liệu thật)</h2>
+                <div class="grid grid-cols-2 gap-4 font-mono text-sm">
+                    <div>x_min: <strong class="text-rose-600">111.0</strong></div>
+                    <div>y_min: <strong class="text-rose-600">28.0</strong></div>
+                    <div>width: <strong class="text-rose-600">32.0</strong></div>
+                    <div>height: <strong class="text-rose-600">44.0</strong></div>
+                    <div class="col-span-2 pt-2 border-t border-rose-200 text-slate-700">
+                        x_max = 111.0 + 32.0 = <strong class="text-rose-600">143.0</strong><br>
+                        y_max = 28.0 + 44.0 = <strong class="text-rose-600">72.0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selected Point -->
+            <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-200">
+                <h2 class="text-lg font-bold text-indigo-800 border-b border-indigo-200 pb-2 mb-3">2. Điểm Lưới Đang Chọn (Center Point)</h2>
+                <p class="text-sm text-slate-600 mb-2">Hệ thống quét qua lưới Stride=8, các điểm lọt vào trong hộp đỏ sẽ trở thành Positive.</p>
+                <div class="font-mono bg-white p-3 rounded border border-indigo-100 shadow-sm">
+                    Tọa độ điểm: <strong class="text-indigo-600 text-lg">(<span id="ui-cx">...</span>, <span id="ui-cy">...</span>)</strong>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Training Math -->
+                <div class="flex-1 bg-green-50 p-5 rounded-xl border border-green-200 math-block" id="train-block">
+                    <h2 class="text-md font-bold text-green-800 border-b border-green-200 pb-2 mb-3">3. Lúc Huấn Luyện (Training)</h2>
+                    <p class="text-xs text-slate-600 mb-3">Tính khoảng cách từ Điểm Tâm đến 4 cạnh của vật thể để làm mục tiêu học (Target):</p>
+                    <div class="space-y-2 font-mono text-sm bg-white p-3 rounded border border-green-100">
+                        <div><span class="text-slate-500">l = c_x - x_min = </span><span id="math-l-calc">...</span> = <strong class="text-green-600" id="math-l">...</strong></div>
+                        <div><span class="text-slate-500">t = c_y - y_min = </span><span id="math-t-calc">...</span> = <strong class="text-green-600" id="math-t">...</strong></div>
+                        <div><span class="text-slate-500">r = x_max - c_x = </span><span id="math-r-calc">...</span> = <strong class="text-green-600" id="math-r">...</strong></div>
+                        <div><span class="text-slate-500">b = y_max - c_y = </span><span id="math-b-calc">...</span> = <strong class="text-green-600" id="math-b">...</strong></div>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 italic">Mạng NN sẽ được train để xuất ra Tensor [l, t, r, b] này.</p>
+                </div>
+
+                <!-- Inference Math -->
+                <div class="flex-1 bg-purple-50 p-5 rounded-xl border border-purple-200 math-block" id="infer-block">
+                    <h2 class="text-md font-bold text-purple-800 border-b border-purple-200 pb-2 mb-3">4. Lúc Dự Đoán (Inference)</h2>
+                    <p class="text-xs text-slate-600 mb-3">Khi có ảnh mới, từ tọa độ lưới đã biết và [l, t, r, b] mạng dự đoán ra, ta vẽ ngược lại Box:</p>
+                    <div class="space-y-2 font-mono text-sm bg-white p-3 rounded border border-purple-100">
+                        <div><span class="text-slate-500">x_min = c_x - l = </span><span id="infer-x-calc">...</span> = <strong class="text-purple-600">111.0</strong></div>
+                        <div><span class="text-slate-500">y_min = c_y - t = </span><span id="infer-y-calc">...</span> = <strong class="text-purple-600">28.0</strong></div>
+                        <div><span class="text-slate-500">x_max = c_x + r = </span><span id="infer-w-calc">...</span> = <strong class="text-purple-600">143.0</strong></div>
+                        <div><span class="text-slate-500">y_max = c_y + b = </span><span id="infer-h-calc">...</span> = <strong class="text-purple-600">72.0</strong></div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mathCanvas');
+        const ctx = canvas.getContext('2d');
+        const IMG_SIZE = 512;
+        const STRIDE = 8; // P3
+
+        // Box Data
+        const gt = { x: 111, y: 28, w: 32, h: 44 };
+        const x_min = gt.x;
+        const y_min = gt.y;
+        const x_max = gt.x + gt.w;
+        const y_max = gt.y + gt.h;
+
+        let activePoint = null;
+        let positivePoints = [];
+
+        // DOM Elements
+        const uiCx = document.getElementById('ui-cx');
+        const uiCy = document.getElementById('ui-cy');
+        
+        const mlCalc = document.getElementById('math-l-calc');
+        const mtCalc = document.getElementById('math-t-calc');
+        const mrCalc = document.getElementById('math-r-calc');
+        const mbCalc = document.getElementById('math-b-calc');
+        const ml = document.getElementById('math-l');
+        const mt = document.getElementById('math-t');
+        const mr = document.getElementById('math-r');
+        const mb = document.getElementById('math-b');
+
+        const ixCalc = document.getElementById('infer-x-calc');
+        const iyCalc = document.getElementById('infer-y-calc');
+        const iwCalc = document.getElementById('infer-w-calc');
+        const ihCalc = document.getElementById('infer-h-calc');
+
+        function init() {
+            // Calculate all center points and identify positive ones
+            for (let i = 0; i < IMG_SIZE / STRIDE; i++) {
+                for (let j = 0; j < IMG_SIZE / STRIDE; j++) {
+                    // cx = (i + 0.5) * stride
+                    const cx = i * STRIDE + (STRIDE / 2);
+                    const cy = j * STRIDE + (STRIDE / 2);
+
+                    if (cx >= x_min && cx <= x_max && cy >= y_min && cy <= y_max) {
+                        positivePoints.push({cx, cy});
+                    }
+                }
+            }
+            
+            // Set default active point to the middle of the positive ones
+            if (positivePoints.length > 0) {
+                const midIndex = Math.floor(positivePoints.length / 2);
+                updateMath(positivePoints[midIndex].cx, positivePoints[midIndex].cy);
+            }
+            draw();
+            
+            // Mouse Interaction
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+
+                // Find closest positive point
+                let closestDist = Infinity;
+                let closestP = null;
+
+                positivePoints.forEach(p => {
+                    const d = Math.hypot(mx - p.cx, my - p.cy);
+                    if (d < STRIDE * 1.5 && d < closestDist) {
+                        closestDist = d;
+                        closestP = p;
+                    }
+                });
+
+                if (closestP && (!activePoint || activePoint.cx !== closestP.cx || activePoint.cy !== closestP.cy)) {
+                    updateMath(closestP.cx, closestP.cy);
+                    draw();
+                }
+            });
+        }
+
+        function updateMath(cx, cy) {
+            activePoint = {cx, cy};
+
+            // Calculate Target Values
+            const l = cx - x_min;
+            const t = cy - y_min;
+            const r = x_max - cx;
+            const b = y_max - cy;
+
+            // Update UI
+            uiCx.innerText = cx.toFixed(1);
+            uiCy.innerText = cy.toFixed(1);
+
+            mlCalc.innerText = `${cx.toFixed(1)} - ${x_min.toFixed(1)}`; ml.innerText = l.toFixed(1);
+            mtCalc.innerText = `${cy.toFixed(1)} - ${y_min.toFixed(1)}`; mt.innerText = t.toFixed(1);
+            mrCalc.innerText = `${x_max.toFixed(1)} - ${cx.toFixed(1)}`; mr.innerText = r.toFixed(1);
+            mbCalc.innerText = `${y_max.toFixed(1)} - ${cy.toFixed(1)}`; mb.innerText = b.toFixed(1);
+
+            ixCalc.innerText = `${cx.toFixed(1)} - ${l.toFixed(1)}`;
+            iyCalc.innerText = `${cy.toFixed(1)} - ${t.toFixed(1)}`;
+            iwCalc.innerText = `${cx.toFixed(1)} + ${r.toFixed(1)}`;
+            ihCalc.innerText = `${cy.toFixed(1)} + ${b.toFixed(1)}`;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, IMG_SIZE, IMG_SIZE);
+
+            // 1. Draw Grid Lines (Faint)
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.3)'; // Slate-300 light
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= IMG_SIZE; i += STRIDE) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, IMG_SIZE); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(IMG_SIZE, i); ctx.stroke();
+            }
+
+            // Draw Center Points (Faint) near the box
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+            const pad = STRIDE * 3;
+            for (let i = Math.max(0, x_min - pad); i <= Math.min(IMG_SIZE, x_max + pad); i += STRIDE) {
+                for (let j = Math.max(0, y_min - pad); j <= Math.min(IMG_SIZE, y_max + pad); j += STRIDE) {
+                    const cx = Math.floor(i/STRIDE)*STRIDE + (STRIDE/2);
+                    const cy = Math.floor(j/STRIDE)*STRIDE + (STRIDE/2);
+                    ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+
+            // 2. Draw GT Box
+            ctx.fillStyle = 'rgba(225, 29, 72, 0.15)'; // Rose-600 light
+            ctx.strokeStyle = '#e11d48'; // Rose-600
+            ctx.lineWidth = 2;
+            ctx.fillRect(gt.x, gt.y, gt.w, gt.h);
+            ctx.strokeRect(gt.x, gt.y, gt.w, gt.h);
+
+            // 3. Highlight Positive Points
+            positivePoints.forEach(p => {
+                ctx.fillStyle = '#10b981'; // Emerald-500
+                ctx.beginPath(); ctx.arc(p.cx, p.cy, 3, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // 4. Draw Math Vectors for Active Point
+            if (activePoint) {
+                const cx = activePoint.cx;
+                const cy = activePoint.cy;
+
+                // Highlight active point
+                ctx.fillStyle = '#8b5cf6'; // Violet-500
+                ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+
+                // Draw l, t, r, b lines
+                ctx.strokeStyle = '#8b5cf6';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+
+                // Left (l)
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x_min, cy); ctx.stroke();
+                // Top (t)
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, y_min); ctx.stroke();
+                // Right (r)
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x_max, cy); ctx.stroke();
+                // Bottom (b)
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, y_max); ctx.stroke();
+                
+                ctx.setLineDash([]);
+
+                // Add Text Labels
+                ctx.fillStyle = '#6d28d9';
+                ctx.font = "bold 12px monospace";
+                ctx.fillText("l", x_min + (cx - x_min)/2 - 4, cy - 6);
+                ctx.fillText("r", cx + (x_max - cx)/2 - 4, cy - 6);
+                ctx.fillText("t", cx + 6, y_min + (cy - y_min)/2 + 4);
+                ctx.fillText("b", cx + 6, cy + (y_max - cy)/2 + 4);
+
+                // Add Point Label
+                ctx.fillStyle = '#334155';
+                ctx.font = "bold 11px monospace";
+                ctx.fillText(`(${cx},${cy})`, cx + 8, cy - 8);
+            }
+
+            // Draw Context Crop Box to make it look zoomed
+            ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0,0,IMG_SIZE, IMG_SIZE);
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>

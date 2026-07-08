@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô phỏng DIoU vs IoU Loss</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h2 { color: #2c3e50; margin-bottom: 5px; }
+        p.desc { color: #555; margin-bottom: 20px; text-align: center; max-width: 800px; }
+        
+        .main-container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1000px;
+        }
+
+        #controls {
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        canvas {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background-image: linear-gradient(#ecf0f1 1px, transparent 1px), linear-gradient(90deg, #ecf0f1 1px, transparent 1px);
+            background-size: 25px 25px;
+            cursor: crosshair;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; color: #34495e; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: #3498db; }
+        
+        .metrics-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            border-top: 2px dashed #ecf0f1;
+            padding-top: 15px;
+        }
+
+        .metric-box {
+            padding: 12px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .iou-box { background-color: #fdf2e9; border-left: 5px solid #e67e22; }
+        .diou-box { background-color: #ebf5fb; border-left: 5px solid #2980b9; }
+        
+        .metric-title { font-weight: bold; font-size: 16px; display: flex; justify-content: space-between;}
+        .formula { font-family: monospace; font-size: 13px; color: #555; background: rgba(255,255,255,0.6); padding: 4px; border-radius: 4px;}
+        
+        .note { font-size: 14px; font-weight: 500; color: #c0392b; line-height: 1.4; padding: 10px; background: #fadbd8; border-radius: 8px; margin-top: 10px; }
+        
+        .legend { display: flex; gap: 15px; font-size: 13px; margin-bottom: 10px; justify-content: center; width: 100%;}
+        .legend span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <h2>Mô phỏng DIoU Loss vs IoU Loss</h2>
+    <p class="desc">Chỉnh sửa 4 biến độc lập (X, Y, W, H) của hộp Dự đoán. Hãy kéo hộp ra xa để thấy điểm mù của IoU!</p>
+
+    <div class="legend">
+        <span><div class="dot" style="background:#27ae60"></div> Thực tế (GT)</span>
+        <span><div class="dot" style="background:#e74c3c"></div> Dự đoán</span>
+        <span><div class="dot" style="background:#f39c12"></div> Khung bao chéo (c)</span>
+        <span><div class="dot" style="background:#8e44ad"></div> Khoảng cách tâm (d)</span>
+    </div>
+
+    <div class="main-container">
+        <!-- Canvas -->
+        <canvas id="simCanvas" width="500" height="500"></canvas>
+
+        <!-- Bảng điều khiển -->
+        <div id="controls">
+            <div class="control-group">
+                <label><span>Dịch X (Offset X)</span> <span id="val-x">0 px</span></label>
+                <input type="range" id="slider-x" min="-200" max="200" value="0">
+            </div>
+            <div class="control-group">
+                <label><span>Dịch Y (Offset Y)</span> <span id="val-y">0 px</span></label>
+                <input type="range" id="slider-y" min="-200" max="200" value="0">
+            </div>
+            <div class="control-group">
+                <label><span>Chiều rộng dự đoán (W)</span> <span id="val-w">120 px</span></label>
+                <input type="range" id="slider-w" min="40" max="250" value="120">
+            </div>
+            <div class="control-group">
+                <label><span>Chiều cao dự đoán (H)</span> <span id="val-h">120 px</span></label>
+                <input type="range" id="slider-h" min="40" max="250" value="120">
+            </div>
+
+            <div class="metrics-container">
+                <!-- IoU Loss -->
+                <div class="metric-box iou-box">
+                    <div class="metric-title">
+                        <span style="color: #d35400;">IoU Loss:</span> 
+                        <span id="iou-loss-val">0.000</span>
+                    </div>
+                    <div class="formula">IoU = <span id="iou-val">1.000</span></div>
+                    <div class="formula">Loss = 1 - IoU</div>
+                </div>
+
+                <!-- DIoU Loss -->
+                <div class="metric-box diou-box">
+                    <div class="metric-title">
+                        <span style="color: #2980b9;">DIoU Loss:</span> 
+                        <span id="diou-loss-val">0.000</span>
+                    </div>
+                    <div class="formula">d² = <span id="d2-val">0</span> | c² = <span id="c2-val">0</span></div>
+                    <div class="formula">Penalty = d² / c² = <span id="penalty-val">0.000</span></div>
+                    <div class="formula">Loss = 1 - IoU + Penalty</div>
+                </div>
+            </div>
+
+            <div id="note-text" class="note">Khớp hoàn hảo! Cả hai Loss đều bằng 0.</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Sliders
+        const sliderX = document.getElementById('slider-x');
+        const sliderY = document.getElementById('slider-y');
+        const sliderW = document.getElementById('slider-w');
+        const sliderH = document.getElementById('slider-h');
+        
+        // Value labels
+        const valX = document.getElementById('val-x');
+        const valY = document.getElementById('val-y');
+        const valW = document.getElementById('val-w');
+        const valH = document.getElementById('val-h');
+
+        // Metrics elements
+        const iouLossVal = document.getElementById('iou-loss-val');
+        const iouVal = document.getElementById('iou-val');
+        const diouLossVal = document.getElementById('diou-loss-val');
+        const d2Val = document.getElementById('d2-val');
+        const c2Val = document.getElementById('c2-val');
+        const penaltyVal = document.getElementById('penalty-val');
+        const noteText = document.getElementById('note-text');
+
+        // Cố định Ground Truth
+        const gtW = 120;
+        const gtH = 120;
+        const gtX = 250; // Tọa độ tâm
+        const gtY = 250; // Tọa độ tâm
+
+        function draw() {
+            // Lấy giá trị từ slider
+            const dx = parseInt(sliderX.value);
+            const dy = parseInt(sliderY.value);
+            const predW = parseInt(sliderW.value);
+            const predH = parseInt(sliderH.value);
+
+            // Cập nhật text slider
+            valX.textContent = dx + " px";
+            valY.textContent = dy + " px";
+            valW.textContent = predW + " px";
+            valH.textContent = predH + " px";
+
+            const predX = gtX + dx;
+            const predY = gtY + dy;
+
+            // Xóa canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // TÍNH TOÁN HÌNH HỌC & LOSS
+            // 1. Tọa độ Min Max của 2 hộp
+            const gtLeft = gtX - gtW/2, gtRight = gtX + gtW/2;
+            const gtTop = gtY - gtH/2, gtBottom = gtY + gtH/2;
+            
+            const predLeft = predX - predW/2, predRight = predX + predW/2;
+            const predTop = predY - predH/2, predBottom = predY + predH/2;
+
+            // 2. Tính Intersection (Phần giao)
+            const interLeft = Math.max(gtLeft, predLeft);
+            const interRight = Math.min(gtRight, predRight);
+            const interTop = Math.max(gtTop, predTop);
+            const interBottom = Math.min(gtBottom, predBottom);
+            
+            let interArea = 0;
+            if (interRight > interLeft && interBottom > interTop) {
+                interArea = (interRight - interLeft) * (interBottom - interTop);
+            }
+
+            // 3. Tính Union (Phần hợp)
+            const gtArea = gtW * gtH;
+            const predArea = predW * predH;
+            const unionArea = gtArea + predArea - interArea;
+
+            // 4. Tính khung nhỏ nhất bao trọn cả 2 (Enclosing Box)
+            const encLeft = Math.min(gtLeft, predLeft);
+            const encRight = Math.max(gtRight, predRight);
+            const encTop = Math.min(gtTop, predTop);
+            const encBottom = Math.max(gtBottom, predBottom);
+            const encW = encRight - encLeft;
+            const encH = encBottom - encTop;
+
+            // Các thành phần DIoU
+            const iou = interArea / unionArea;
+            const iouLoss = 1 - iou;
+
+            const d2 = Math.pow(predX - gtX, 2) + Math.pow(predY - gtY, 2); // Bình phương khoảng cách tâm
+            const c2 = Math.pow(encW, 2) + Math.pow(encH, 2); // Bình phương đường chéo khung bao
+            const penalty = c2 > 0 ? (d2 / c2) : 0;
+            
+            const diouLoss = 1 - iou + penalty;
+
+            // === VẼ LÊN CANVAS ===
+            
+            // Vẽ hộp Enclosing Box (Vàng nhạt đứt nét)
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#f39c12';
+            ctx.rect(encLeft, encTop, encW, encH);
+            ctx.stroke();
+
+            // Vẽ đường chéo C
+            ctx.beginPath();
+            ctx.moveTo(encLeft, encTop);
+            ctx.lineTo(encRight, encBottom);
+            ctx.stroke();
+
+            // Reset nét liền
+            ctx.setLineDash([]);
+
+            // Vẽ Ground Truth (Xanh lá)
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#27ae60';
+            ctx.rect(gtLeft, gtTop, gtW, gtH);
+            ctx.stroke();
+            // Vẽ tâm GT
+            ctx.fillStyle = '#27ae60';
+            ctx.beginPath(); ctx.arc(gtX, gtY, 4, 0, Math.PI*2); ctx.fill();
+
+            // Vẽ Prediction (Đỏ)
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#e74c3c';
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.1)';
+            ctx.rect(predLeft, predTop, predW, predH);
+            ctx.fill();
+            ctx.stroke();
+            // Vẽ tâm Pred
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath(); ctx.arc(predX, predY, 4, 0, Math.PI*2); ctx.fill();
+
+            // Vẽ phần giao (Tô màu xám nhẹ)
+            if (interArea > 0) {
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.fillRect(interLeft, interTop, interRight - interLeft, interBottom - interTop);
+            }
+
+            // Vẽ đường nối 2 tâm d (Tím)
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#8e44ad';
+            ctx.moveTo(gtX, gtY);
+            ctx.lineTo(predX, predY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Cập nhật UI Text
+            iouVal.textContent = iou.toFixed(3);
+            iouLossVal.textContent = iouLoss.toFixed(3);
+            
+            d2Val.textContent = d2.toFixed(0);
+            c2Val.textContent = c2.toFixed(0);
+            penaltyVal.textContent = penalty.toFixed(3);
+            diouLossVal.textContent = diouLoss.toFixed(3);
+
+            // Cập nhật nhận xét
+            if (iou === 1) {
+                noteText.innerHTML = "Khớp hoàn hảo! Cả hai Loss đều bằng 0.";
+                noteText.style.background = "#d5f5e3";
+                noteText.style.color = "#27ae60";
+            } else if (iou > 0) {
+                noteText.innerHTML = "Hai hộp đang giao nhau. Cả IoU và DIoU đều cung cấp thông tin (gradient) để đẩy hộp về phía tâm.";
+                noteText.style.background = "#fcf3cf";
+                noteText.style.color = "#b9770e";
+            } else {
+                noteText.innerHTML = "🔴 ĐIỂM MÙ CỦA IOU: Hai hộp đã tách rời. IoU Loss đứng im ở 1.000 dù bạn có kéo xa cỡ nào (mất gradient). Nhưng DIoU Loss tiếp tục tăng > 1.0, tạo áp lực kéo 2 tâm lại gần nhau!";
+                noteText.style.background = "#fadbd8";
+                noteText.style.color = "#c0392b";
+            }
+        }
+
+        // Add event listeners
+        [sliderX, sliderY, sliderW, sliderH].forEach(slider => {
+            slider.addEventListener('input', draw);
+        });
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>

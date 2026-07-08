@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anchor-Free Multi-Object (640x512)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        #canvas-container { position: relative; width: 640px; height: 512px; }
+        canvas { position: absolute; top: 0; left: 0; border-radius: 0.5rem; }
+        .tab-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .tab-btn { transition: all 0.2s ease-in-out; }
+        .grab-cursor { cursor: grab; }
+        .grabbing-cursor { cursor: grabbing !important; }
+        .crosshair-cursor { cursor: crosshair; }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex flex-col items-center">
+
+    <div class="max-w-[1280px] w-full bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 mb-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-blue-400 mb-2">Thực Hành Anchor-Free Đa Mục Tiêu</h1>
+                <p class="text-slate-300 text-sm">
+                    Kích thước ảnh: <strong class="text-white">640x512</strong>. Phát hiện <strong class="text-rose-400">4 vật thể</strong> cùng lúc.
+                    <br>💡 <strong class="text-yellow-400">Hướng dẫn:</strong> Kéo thả các khung đỏ (người) lại gần nhau để xem cơ chế ưu tiên mục tiêu nhỏ khi có chồng lấp (Overlapping).
+                </p>
+            </div>
+            <div class="bg-slate-700 p-3 rounded-lg border border-slate-600 flex flex-col gap-2">
+                <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tải ảnh thật (Tùy chọn)</label>
+                <input type="file" id="imageLoader" accept="image/jpeg, image/png" class="text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 cursor-pointer"/>
+            </div>
+        </div>
+        
+        <div class="flex flex-col md:flex-row items-center gap-3 bg-slate-900 p-2 rounded-lg inline-flex">
+            <button onclick="switchMode('train')" id="btn-train" class="tab-btn active px-6 py-2 rounded-md font-semibold text-sm border border-transparent">1. Quá Trình Học (Train)</button>
+            <button onclick="switchMode('infer')" id="btn-infer" class="tab-btn px-6 py-2 rounded-md font-semibold text-sm border border-slate-600 text-slate-400 hover:bg-slate-700">2. Quá Trình Dự Đoán (Infer)</button>
+        </div>
+    </div>
+
+    <div class="max-w-[1280px] w-full flex flex-col xl:flex-row gap-8 items-start">
+        
+        <!-- Left: Canvas Area (640x512) -->
+        <div class="flex-shrink-0 bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700">
+            <div id="canvas-container" class="border-2 border-slate-600 overflow-hidden shadow-inner bg-slate-900">
+                <canvas id="bgCanvas" width="640" height="512"></canvas>
+                <canvas id="mainCanvas" width="640" height="512" class="grab-cursor"></canvas>
+            </div>
+            <p class="text-xs text-center text-slate-400 mt-3 font-mono">Lưới Đặc Trưng Tầng P3 (Stride = 8)</p>
+        </div>
+
+        <!-- Right: Dynamic Controls & Info -->
+        <div class="flex-grow w-full flex flex-col gap-4" id="info-panel">
+            
+            <div id="panel-train" class="flex flex-col gap-4">
+                <div class="bg-slate-800 p-5 rounded-xl border border-rose-900/50 shadow-md">
+                    <h2 class="text-lg font-bold text-rose-400 mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z"></path></svg>
+                        Danh sách Đối tượng (Ground Truths)
+                    </h2>
+                    <p class="text-xs text-slate-400 mb-3">Có 4 mục tiêu. Điểm lưới nào nằm trong hộp sẽ được gán nhãn cho hộp đó. Nếu 2 hộp đè lên nhau, điểm lưới gán cho hộp có diện tích nhỏ hơn.</p>
+                    <div id="box-list" class="space-y-2 font-mono text-sm">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-5 rounded-xl border border-emerald-900/50 shadow-md">
+                    <h2 class="text-lg font-bold text-emerald-400 mb-2">Toán học tại điểm (Regression Math)</h2>
+                    <p class="text-sm text-slate-300 mb-3">Rê chuột vào các <span class="text-emerald-400 font-bold">chấm xanh</span> bên trong hộp để xem mạng nơ-ron học 4 khoảng cách như thế nào.</p>
+                    
+                    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700 font-mono text-sm grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-slate-500">Tọa độ điểm lưới: </span><br>
+                            <strong class="text-emerald-400 text-lg">(<span id="pt-x">-</span>, <span id="pt-y">-</span>)</strong><br>
+                            <span class="text-xs text-slate-500">Thuộc Box ID: <strong id="pt-box-id" class="text-white">-</strong></span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-slate-800 p-1 px-2 rounded">l: <span id="val-l" class="text-purple-400">-</span></div>
+                            <div class="bg-slate-800 p-1 px-2 rounded">r: <span id="val-r" class="text-purple-400">-</span></div>
+                            <div class="bg-slate-800 p-1 px-2 rounded">t: <span id="val-t" class="text-purple-400">-</span></div>
+                            <div class="bg-slate-800 p-1 px-2 rounded">b: <span id="val-b" class="text-purple-400">-</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-infer" class="hidden flex-col gap-4">
+                <div class="bg-slate-800 p-5 rounded-xl border border-blue-900/50 shadow-md">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-lg font-bold text-blue-400">Classification Threshold (Lọc Nhiễu)</h2>
+                        <span class="bg-blue-900 text-blue-200 font-bold px-2 py-1 rounded text-sm" id="thresh-val">0.30</span>
+                    </div>
+                    <p class="text-sm text-slate-400 mb-4">Loại bỏ các dự đoán không tự tin. Trên ảnh 640x512 có tới 6400 điểm ảnh. Hãy kéo thanh gạt để xóa bỏ các hộp nhiễu.</p>
+                    <input type="range" id="conf-slider" min="0" max="100" value="30" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div class="bg-slate-800 p-5 rounded-xl border border-green-900/50 shadow-md">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-lg font-bold text-green-400">Gộp Hộp Trùng (NMS)</h2>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="nms-toggle" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        </label>
+                    </div>
+                    <p class="text-sm text-slate-400 mb-3">Với 4 mục tiêu, sẽ có nhiều hộp đè lên nhau ở mỗi khu vực. Bật NMS (IoU > 0.4) để tinh gọn lại thành 4 hộp duy nhất.</p>
+                    <div class="flex items-center gap-3 bg-slate-900 p-3 rounded border border-slate-700">
+                        <span class="font-mono text-sm text-slate-500">Số Hộp Còn Lại:</span>
+                        <strong class="text-green-400 text-2xl" id="final-box-count">0</strong>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const mainCanvas = document.getElementById('mainCanvas');
+        const bgCanvas = document.getElementById('bgCanvas');
+        const ctx = mainCanvas.getContext('2d');
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        const IMG_W = 640;
+        const IMG_H = 512;
+        const STRIDE = 8;
+        let mode = 'train'; 
+        let userImage = null;
+
+        // The 4 Ground Truth Boxes provided by the user
+        let gtBoxes = [
+            { id: 1, x: 237.0, y: 333.0, w: 32.0, h: 40.0, color: '#f43f5e' }, // Rose
+            { id: 2, x: 221.0, y: 209.0, w: 24.0, h: 40.0, color: '#ec4899' }, // Pink
+            { id: 3, x: 157.0, y: 229.0, w: 24.0, h: 36.0, color: '#d946ef' }, // Fuchsia
+            { id: 4, x: 109.0, y: 259.0, w: 20.0, h: 36.0, color: '#a855f7' }  // Purple
+        ];
+        
+        let isDragging = false;
+        let draggedBoxIndex = -1;
+        let dragOffX = 0;
+        let dragOffY = 0;
+
+        let positivePoints = [];
+        let activePoint = null;
+        let mockPredictions = [];
+
+        const imageLoader = document.getElementById('imageLoader');
+        imageLoader.addEventListener('change', handleImage, false);
+
+        function handleImage(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                userImage = new Image();
+                userImage.onload = function() {
+                    drawBackground();
+                    updateLogic();
+                }
+                userImage.src = event.target.result;
+            }
+            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+        }
+
+        function drawBackground() {
+            bgCtx.clearRect(0, 0, IMG_W, IMG_H);
+            if (userImage) {
+                bgCtx.drawImage(userImage, 0, 0, IMG_W, IMG_H);
+            } else {
+                // Synthetic Thermal Background
+                bgCtx.fillStyle = '#1e293b'; // Slate 800
+                bgCtx.fillRect(0, 0, IMG_W, IMG_H);
+                
+                // Noise
+                for(let i=0; i<3000; i++) {
+                    bgCtx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
+                    bgCtx.fillRect(Math.random()*IMG_W, Math.random()*IMG_H, 2, 2);
+                }
+
+                // Draw mock thermal heat spots based on GT box positions
+                gtBoxes.forEach(box => {
+                    const cx = box.x + box.w/2;
+                    const cy = box.y + box.h/2;
+                    const grad = bgCtx.createRadialGradient(cx, cy, 2, cx, cy, 25);
+                    grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)'); // White hot center
+                    grad.addColorStop(0.5, 'rgba(100, 116, 139, 0.4)'); // Gray edge
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    bgCtx.fillStyle = grad;
+                    bgCtx.beginPath();
+                    bgCtx.arc(cx, cy, 25, 0, Math.PI*2);
+                    bgCtx.fill();
+                });
+            }
+        }
+
+        mainCanvas.addEventListener('mousedown', (e) => {
+            if (mode !== 'train') return;
+            const rect = mainCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            // Find if a box is clicked (reverse order to pick top-most if overlapping)
+            for (let i = gtBoxes.length - 1; i >= 0; i--) {
+                const box = gtBoxes[i];
+                if (mx >= box.x && mx <= box.x + box.w && my >= box.y && my <= box.y + box.h) {
+                    isDragging = true;
+                    draggedBoxIndex = i;
+                    dragOffX = mx - box.x;
+                    dragOffY = my - box.y;
+                    mainCanvas.classList.add('grabbing-cursor');
+                    break;
+                }
+            }
+        });
+
+        mainCanvas.addEventListener('mousemove', (e) => {
+            const rect = mainCanvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            if (isDragging && mode === 'train' && draggedBoxIndex > -1) {
+                let box = gtBoxes[draggedBoxIndex];
+                box.x = mx - dragOffX;
+                box.y = my - dragOffY;
+                
+                // Clamp to screen bounds
+                box.x = Math.max(0, Math.min(IMG_W - box.w, box.x));
+                box.y = Math.max(0, Math.min(IMG_H - box.h, box.y));
+                
+                updateLogic();
+            } else if (!isDragging && mode === 'train') {
+                // Hover over positive points for Math
+                let closestDist = Infinity;
+                let closestP = null;
+                positivePoints.forEach(p => {
+                    const d = Math.hypot(mx - p.cx, my - p.cy);
+                    if (d < STRIDE * 1.5 && d < closestDist) {
+                        closestDist = d;
+                        closestP = p;
+                    }
+                });
+
+                if (closestP !== activePoint) {
+                    activePoint = closestP;
+                    renderTrainMode();
+                }
+            }
+        });
+
+        const stopDrag = () => {
+            if (isDragging) {
+                isDragging = false;
+                draggedBoxIndex = -1;
+                mainCanvas.classList.remove('grabbing-cursor');
+                generateMockPredictions(); // Update predictions for inference
+            }
+        };
+        mainCanvas.addEventListener('mouseup', stopDrag);
+        mainCanvas.addEventListener('mouseleave', stopDrag);
+
+        function updateLogic() {
+            // Update UI list
+            const listEl = document.getElementById('box-list');
+            listEl.innerHTML = '';
+            gtBoxes.forEach(box => {
+                listEl.innerHTML += `
+                    <div class="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700">
+                        <span class="w-3 h-3 rounded-full" style="background-color: ${box.color}"></span>
+                        <span class="text-slate-300">ID ${box.id}:</span> 
+                        <span class="text-rose-400">[${box.x.toFixed(1)}, ${box.y.toFixed(1)}, ${box.w.toFixed(1)}, ${box.h.toFixed(1)}]</span>
+                    </div>`;
+            });
+
+            // Target Assignment (Anchor-Free Logic)
+            positivePoints = [];
+            
+            for (let x = 0; x < IMG_W; x += STRIDE) {
+                for (let y = 0; y < IMG_H; y += STRIDE) {
+                    const cx = x + STRIDE/2;
+                    const cy = y + STRIDE/2;
+                    
+                    let assignedBox = null;
+                    let minArea = Infinity;
+
+                    // If point falls in multiple boxes, assign to the one with the smallest area
+                    gtBoxes.forEach(box => {
+                        if (cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h) {
+                            const area = box.w * box.h;
+                            if (area < minArea) {
+                                minArea = area;
+                                assignedBox = box;
+                            }
+                        }
+                    });
+
+                    if (assignedBox) {
+                        positivePoints.push({
+                            cx: cx, cy: cy, box: assignedBox
+                        });
+                    }
+                }
+            }
+            
+            if (mode === 'train') renderTrainMode();
+            else renderInferMode();
+        }
+
+        function renderTrainMode() {
+            ctx.clearRect(0, 0, IMG_W, IMG_H);
+
+            // Draw grid (faint)
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= IMG_W; i += STRIDE) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, IMG_H); ctx.stroke();
+            }
+            for (let j = 0; j <= IMG_H; j += STRIDE) {
+                ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(IMG_W, j); ctx.stroke();
+            }
+
+            // Draw Ground Truth Boxes
+            gtBoxes.forEach(box => {
+                ctx.fillStyle = `${box.color}22`; // Add alpha
+                ctx.strokeStyle = box.color;
+                ctx.lineWidth = 2;
+                ctx.fillRect(box.x, box.y, box.w, box.h);
+                ctx.strokeRect(box.x, box.y, box.w, box.h);
+                // ID label
+                ctx.fillStyle = box.color;
+                ctx.font = 'bold 12px monospace';
+                ctx.fillText(`ID ${box.id}`, box.x, box.y - 4);
+            });
+
+            // Draw Center Points (All faint)
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.2)';
+            for (let x = 0; x < IMG_W; x += STRIDE) {
+                for (let y = 0; y < IMG_H; y += STRIDE) {
+                    ctx.beginPath(); ctx.arc(x + STRIDE/2, y + STRIDE/2, 1.5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+
+            // Highlight Positive Points (Assigned to boxes)
+            positivePoints.forEach(p => {
+                ctx.fillStyle = '#10b981'; // Emerald-500
+                ctx.beginPath(); ctx.arc(p.cx, p.cy, 3, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // Draw active regression math
+            if (activePoint) {
+                const cx = activePoint.cx;
+                const cy = activePoint.cy;
+                const box = activePoint.box;
+                
+                ctx.fillStyle = '#a78bfa'; // Purple
+                ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+
+                const l = cx - box.x;
+                const t = cy - box.y;
+                const r = (box.x + box.w) - cx;
+                const b = (box.y + box.h) - cy;
+
+                ctx.strokeStyle = '#a78bfa';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(box.x, cy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, box.y); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(box.x + box.w, cy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, box.y + box.h); ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Update Math UI
+                document.getElementById('pt-x').innerText = cx.toFixed(1);
+                document.getElementById('pt-y').innerText = cy.toFixed(1);
+                document.getElementById('pt-box-id').innerText = box.id;
+                document.getElementById('val-l').innerText = l.toFixed(1);
+                document.getElementById('val-t').innerText = t.toFixed(1);
+                document.getElementById('val-r').innerText = r.toFixed(1);
+                document.getElementById('val-b').innerText = b.toFixed(1);
+            } else {
+                document.getElementById('pt-x').innerText = '-';
+                document.getElementById('pt-y').innerText = '-';
+                document.getElementById('pt-box-id').innerText = '-';
+                document.getElementById('val-l').innerText = '-';
+                document.getElementById('val-t').innerText = '-';
+                document.getElementById('val-r').innerText = '-';
+                document.getElementById('val-b').innerText = '-';
+            }
+        }
+
+        function generateMockPredictions() {
+            mockPredictions = [];
+            // Generate for every grid point
+            for (let i = 0; i < IMG_W; i += STRIDE) {
+                for (let j = 0; j < IMG_H; j += STRIDE) {
+                    const cx = i + STRIDE/2;
+                    const cy = j + STRIDE/2;
+                    
+                    let score = Math.random() * 0.15; // Background noise
+                    let l = Math.random() * 50;
+                    let t = Math.random() * 50;
+                    let r = Math.random() * 50;
+                    let b = Math.random() * 50;
+
+                    // If point is near ANY of our GT boxes, boost confidence and fix regression
+                    gtBoxes.forEach(box => {
+                        const dist = Math.hypot(cx - (box.x + box.w/2), cy - (box.y + box.h/2));
+                        
+                        // Inside box (Very High Confidence)
+                        if (cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h) {
+                            if (score < 0.9) score = 0.8 + (Math.random() * 0.18); // 0.8 - 0.98
+                            // Ideal regression with slight noise
+                            l = cx - box.x + (Math.random()*2 - 1);
+                            t = cy - box.y + (Math.random()*2 - 1);
+                            r = (box.x + box.w) - cx + (Math.random()*2 - 1);
+                            b = (box.y + box.h) - cy + (Math.random()*2 - 1);
+                        } 
+                        // Nearby (Medium confidence)
+                        else if (dist < 40) {
+                            if (score < 0.6) score = 0.3 + (Math.random() * 0.3); // 0.3 - 0.6
+                            l = box.w/2 + (Math.random()*10);
+                            t = box.h/2 + (Math.random()*10);
+                            r = box.w/2 + (Math.random()*10);
+                            b = box.h/2 + (Math.random()*10);
+                        }
+                    });
+
+                    mockPredictions.push({
+                        cx, cy, score,
+                        box: { x: cx - l, y: cy - t, w: l + r, h: t + b }
+                    });
+                }
+            }
+        }
+
+        function calculateIoU(box1, box2) {
+            const xA = Math.max(box1.x, box2.x);
+            const yA = Math.max(box1.y, box2.y);
+            const xB = Math.min(box1.x + box1.w, box2.x + box2.w);
+            const yB = Math.min(box1.y + box1.h, box2.y + box2.h);
+            const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+            if (interArea === 0) return 0;
+            return interArea / ((box1.w * box1.h) + (box2.w * box2.h) - interArea);
+        }
+
+        function renderInferMode() {
+            ctx.clearRect(0, 0, IMG_W, IMG_H);
+            
+            const threshold = document.getElementById('conf-slider').value / 100;
+            document.getElementById('thresh-val').innerText = threshold.toFixed(2);
+            const useNMS = document.getElementById('nms-toggle').checked;
+
+            // 1. Filter by threshold
+            let filtered = mockPredictions.filter(p => p.score >= threshold);
+            let final = [];
+
+            // 2. Apply NMS
+            if (useNMS) {
+                filtered.sort((a, b) => b.score - a.score);
+                while (filtered.length > 0) {
+                    const best = filtered.shift();
+                    final.push(best);
+                    filtered = filtered.filter(p => calculateIoU(best.box, p.box) < 0.4); // IoU Threshold 0.4
+                }
+            } else {
+                final = filtered;
+            }
+
+            document.getElementById('final-box-count').innerText = final.length;
+
+            // 3. Draw final boxes
+            final.forEach(p => {
+                if (p.score > 0.7) {
+                    ctx.strokeStyle = '#34d399'; // Emerald (High conf)
+                    ctx.lineWidth = useNMS ? 2 : 1;
+                } else {
+                    ctx.strokeStyle = '#fbbf24'; // Amber (Low conf)
+                    ctx.lineWidth = 1;
+                }
+                
+                // Draw Box
+                ctx.strokeRect(p.box.x, p.box.y, p.box.w, p.box.h);
+                
+                // Draw Label if NMS is active
+                if (useNMS && p.score > 0.5) {
+                    ctx.fillStyle = ctx.strokeStyle;
+                    ctx.font = 'bold 12px Arial';
+                    ctx.fillText(`${(p.score*100).toFixed(0)}%`, p.box.x, Math.max(12, p.box.y - 4));
+                }
+            });
+        }
+
+        function switchMode(newMode) {
+            mode = newMode;
+            if (mode === 'train') {
+                document.getElementById('btn-train').classList.replace('border-slate-600', 'border-transparent');
+                document.getElementById('btn-train').classList.replace('text-slate-400', 'text-white');
+                document.getElementById('btn-train').classList.add('bg-blue-500');
+                
+                document.getElementById('btn-infer').classList.remove('bg-blue-500', 'text-white', 'border-transparent');
+                document.getElementById('btn-infer').classList.add('border-slate-600', 'text-slate-400');
+                
+                document.getElementById('panel-train').classList.remove('hidden');
+                document.getElementById('panel-train').classList.add('flex');
+                document.getElementById('panel-infer').classList.add('hidden');
+                document.getElementById('panel-infer').classList.remove('flex');
+                
+                mainCanvas.classList.add('grab-cursor');
+            } else {
+                document.getElementById('btn-infer').classList.replace('border-slate-600', 'border-transparent');
+                document.getElementById('btn-infer').classList.replace('text-slate-400', 'text-white');
+                document.getElementById('btn-infer').classList.add('bg-blue-500');
+                
+                document.getElementById('btn-train').classList.remove('bg-blue-500', 'text-white', 'border-transparent');
+                document.getElementById('btn-train').classList.add('border-slate-600', 'text-slate-400');
+
+                document.getElementById('panel-infer').classList.remove('hidden');
+                document.getElementById('panel-infer').classList.add('flex');
+                document.getElementById('panel-train').classList.add('hidden');
+                document.getElementById('panel-train').classList.remove('flex');
+                
+                mainCanvas.classList.remove('grab-cursor');
+                if (mockPredictions.length === 0) generateMockPredictions();
+            }
+            updateLogic();
+        }
+
+        document.getElementById('conf-slider').addEventListener('input', updateLogic);
+        document.getElementById('nms-toggle').addEventListener('change', updateLogic);
+
+        // Initialization
+        drawBackground();
+        updateLogic();
+        generateMockPredictions();
+
+    </script>
+</body>
+</html>

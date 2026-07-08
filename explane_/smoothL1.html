@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô phỏng: Điểm mù của L1 so với IoU</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h2 { color: #2c3e50; margin-bottom: 5px; }
+        p.desc { color: #7f8c8d; margin-bottom: 20px; text-align: center; max-width: 800px; }
+        
+        .main-container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #controls {
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+            width: 320px;
+        }
+
+        #canvas-wrapper {
+            background: #fff;
+            width: 500px;
+            height: 500px;
+            position: relative;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+            overflow: hidden;
+            border: 2px solid #ecf0f1;
+            /* Tạo lưới caro cho dễ nhìn */
+            background-image: linear-gradient(#ecf0f1 1px, transparent 1px), linear-gradient(90deg, #ecf0f1 1px, transparent 1px);
+            background-size: 25px 25px;
+            background-position: center center;
+        }
+
+        .box {
+            position: absolute;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.1s ease;
+        }
+
+        #gt-box {
+            border: 3px dashed #27ae60;
+            color: #27ae60;
+            z-index: 1;
+        }
+
+        #pred-box {
+            border: 3px solid #e74c3c;
+            background-color: rgba(231, 76, 60, 0.2);
+            color: #c0392b;
+            z-index: 2;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 8px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        .radio-group { display: flex; gap: 15px; }
+        .radio-group label { font-weight: normal; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;}
+
+        .metrics {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px dashed #ecf0f1;
+        }
+        .metric {
+            font-size: 1.3em;
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .l1-metric { background-color: #f4ecf7; color: #8e44ad; border-left: 5px solid #8e44ad; }
+        .iou-metric { background-color: #fef5e7; color: #d35400; border-left: 5px solid #d35400; }
+        
+        .note { font-size: 0.9em; font-style: italic; color: #7f8c8d; line-height: 1.5;}
+        .highlight { font-weight: bold; color: #c0392b; }
+
+    </style>
+</head>
+<body>
+
+    <h2>L1 Loss vs IoU Loss</h2>
+    <p class="desc">Thử kéo thanh trượt "Độ lệch" và sau đó đổi "Kích thước vật thể" để xem L1 Loss bị "mù" như thế nào nhé.</p>
+
+    <div class="main-container">
+        <!-- Khu vực Điều khiển -->
+        <div id="controls">
+            <div class="control-group">
+                <label>Kích thước vật thể (Box Size)</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="size" value="200" checked> Xe tải (To)</label>
+                    <label><input type="radio" name="size" value="40"> Con kiến (Nhỏ)</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label><span>Độ lệch ngang (X Offset)</span> <span id="val-x">0 px</span></label>
+                <input type="range" id="slider-x" min="-80" max="80" value="0">
+            </div>
+
+            <div class="control-group">
+                <label><span>Độ lệch dọc (Y Offset)</span> <span id="val-y">0 px</span></label>
+                <input type="range" id="slider-y" min="-80" max="80" value="0">
+            </div>
+
+            <div class="metrics">
+                <div class="metric l1-metric">
+                    <strong>L1 Loss:</strong> <span id="l1-score">0</span>
+                    <div style="font-size: 0.7em; margin-top: 5px; font-weight: normal;">Chỉ cộng dồn độ lệch X và Y. Không quan tâm box to hay nhỏ.</div>
+                </div>
+                <div class="metric iou-metric">
+                    <strong>IoU:</strong> <span id="iou-score">100.0%</span>
+                    <div style="font-size: 0.7em; margin-top: 5px; font-weight: normal;">Nhìn vào toàn bộ diện tích hình học.</div>
+                </div>
+            </div>
+
+            <p class="note" id="conclusion-text">Kéo thanh trượt để bắt đầu!</p>
+        </div>
+
+        <!-- Khu vực Vẽ hình -->
+        <div id="canvas-wrapper">
+            <div id="gt-box" class="box">Thực Tế</div>
+            <div id="pred-box" class="box">Dự Đoán</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas-wrapper');
+        const gtBox = document.getElementById('gt-box');
+        const predBox = document.getElementById('pred-box');
+        
+        const sliderX = document.getElementById('slider-x');
+        const sliderY = document.getElementById('slider-y');
+        const radios = document.getElementsByName('size');
+        
+        const valX = document.getElementById('val-x');
+        const valY = document.getElementById('val-y');
+        
+        const l1Score = document.getElementById('l1-score');
+        const iouScore = document.getElementById('iou-score');
+        const conclusionText = document.getElementById('conclusion-text');
+
+        const CANVAS_SIZE = 500;
+        const CENTER = CANVAS_SIZE / 2;
+
+        function updateSimulation() {
+            // Lấy giá trị đầu vào
+            let size = 0;
+            for(let i=0; i<radios.length; i++){
+                if(radios[i].checked){
+                    size = parseInt(radios[i].value);
+                    break;
+                }
+            }
+            const offsetX = parseInt(sliderX.value);
+            const offsetY = parseInt(sliderY.value);
+
+            // Cập nhật UI Label
+            valX.textContent = offsetX + " px";
+            valY.textContent = offsetY + " px";
+
+            // Vẽ Ground Truth Box (Luôn ở giữa)
+            gtBox.style.width = size + 'px';
+            gtBox.style.height = size + 'px';
+            gtBox.style.left = (CENTER - size/2) + 'px';
+            gtBox.style.top = (CENTER - size/2) + 'px';
+
+            // Vẽ Prediction Box (Bị lệch đi)
+            predBox.style.width = size + 'px';
+            predBox.style.height = size + 'px';
+            predBox.style.left = (CENTER - size/2 + offsetX) + 'px';
+            predBox.style.top = (CENTER - size/2 + offsetY) + 'px';
+
+            // === TÍNH TOÁN LOSS ===
+            
+            // 1. L1 Loss = |dx| + |dy| + |dw| + |dh|
+            // Vì w và h không đổi trong ví dụ này, L1 chỉ là tổng độ lệch x và y
+            const l1 = Math.abs(offsetX) + Math.abs(offsetY);
+            l1Score.textContent = l1;
+
+            // 2. IoU = Intersection / Union
+            // Tính toán phần giao nhau
+            const intersectW = Math.max(0, size - Math.abs(offsetX));
+            const intersectH = Math.max(0, size - Math.abs(offsetY));
+            const intersectArea = intersectW * intersectH;
+            
+            const gtArea = size * size;
+            const predArea = size * size;
+            const unionArea = gtArea + predArea - intersectArea;
+
+            const iou = (intersectArea / unionArea) * 100;
+            iouScore.textContent = iou.toFixed(1) + "%";
+
+            // Nhận xét động
+            if (offsetX === 0 && offsetY === 0) {
+                conclusionText.innerHTML = "Trùng khớp hoàn hảo. Cả L1 Loss và IoU đều tốt nhất.";
+            } else if (size === 200) {
+                conclusionText.innerHTML = "Với vật thể to, lệch vài chục pixel thì IoU vẫn khá cao. Nhưng L1 Loss lại phạt một mức bằng đúng <span class='highlight'>" + l1 + " điểm</span>.";
+            } else {
+                if (iou === 0) {
+                    conclusionText.innerHTML = "Lệch hoàn toàn khỏi vật thể nhỏ! IoU bằng 0% (cực kỳ tệ). Nhưng L1 Loss vẫn cứng ngắc giữ nguyên mức phạt <span class='highlight'>" + l1 + " điểm</span> y hệt lúc hộp còn to.";
+                } else {
+                    conclusionText.innerHTML = "Vật thể nhỏ bị lệch đi một chút là mất đi rất nhiều diện tích giao nhau (IoU giảm mạnh). Nhưng L1 Loss không nhận ra sự khác biệt này, nó vẫn chỉ phạt <span class='highlight'>" + l1 + " điểm</span>.";
+                }
+            }
+        }
+
+        // Lắng nghe sự kiện
+        sliderX.addEventListener('input', updateSimulation);
+        sliderY.addEventListener('input', updateSimulation);
+        for(let i=0; i<radios.length; i++){
+            radios[i].addEventListener('change', updateSimulation);
+        }
+
+        // Khởi tạo ban đầu
+        updateSimulation();
+    </script>
+</body>
+</html>
